@@ -1,7 +1,4 @@
 {
-  "/_not-found/page": "app/_not-found/page.js",
-  "/api/candidates/route": "app/api/candidates/route.js",
-  "/api/curriculum/route": "app/api/curriculum/route.js",
-  "/api/interview/route": "app/api/interview/route.js",
-  "/page": "app/page.js"
+  "/page": "app/page.js",
+  "/api/interview/route": "app/api/interview/route.js"
 }

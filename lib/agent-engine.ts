@@ -12,14 +12,49 @@ export class InterviewAgentEngine {
    * Fetch synthetic candidates list
    */
   getCandidates(): Candidate[] {
-    return candidatesData as Candidate[];
+    const raw = candidatesData as any;
+    const rawList: any[] = Array.isArray(raw) ? raw : raw?.candidates || [];
+    return rawList.map(c => {
+      const id = c.id || c.member?.id || 'CAND-001';
+      const name = c.name || c.member?.name || 'Candidate';
+      const target_role = c.target_role || c.member?.jobRole || 'AI Engineer';
+      const completed_days = c.completed_days || (c.missions ? c.missions.filter((m: any) => m.passed).map((m: any) => m.day) : []);
+      const skipped_days = c.skipped_days || (c.missions ? c.missions.filter((m: any) => m.skipped).map((m: any) => m.day) : []);
+      const known_strengths = c.known_strengths || (c.missions ? c.missions.filter((m: any) => m.passed && (m.attempts || 1) <= 2).map((m: any) => m.title).slice(0, 3) : ['AI Systems']);
+      const focus_areas = c.focus_areas || (c.missions ? c.missions.filter((m: any) => m.skipped || (m.attempts || 1) > 2).map((m: any) => m.title).slice(0, 3) : ['Model Context Protocol (MCP)']);
+      const cohort_grade = c.cohort_grade || (c.signals?.missionsCompleted > 28 ? 'A+' : 'B+');
+      const bio = c.bio || `${name} is a ${target_role} with ${c.member?.yearsExperience || 5} years experience (${c.member?.education || 'CS Degree'}).`;
+      const avatar = c.avatar || `https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80`;
+
+      return {
+        ...c,
+        id,
+        name,
+        avatar,
+        target_role,
+        completed_days,
+        skipped_days,
+        known_strengths: known_strengths.length > 0 ? known_strengths : ['Agentic AI', 'RAG'],
+        focus_areas: focus_areas.length > 0 ? focus_areas : ['MCP', 'Vector Indexing'],
+        cohort_grade,
+        bio
+      };
+    });
   }
 
   /**
    * Fetch 31-day curriculum modules
    */
   getCurriculum(): CurriculumModule[] {
-    return curriculumData as CurriculumModule[];
+    const raw = curriculumData as any;
+    const rawList: any[] = Array.isArray(raw) ? raw : raw?.days || raw?.modules || [];
+    return rawList.map(item => ({
+      day: item.day || item.n || 1,
+      domain: item.domain || item.type || 'AI Architecture',
+      title: item.title || 'AI Curriculum Module',
+      concepts: item.concepts || item.objectives || [],
+      sample_questions: item.sample_questions || item.tools || []
+    }));
   }
 
   /**
@@ -38,8 +73,10 @@ export class InterviewAgentEngine {
       };
     }
 
-    const candidate = (candidatesData as Candidate[]).find(c => c.id === candidateId) || candidatesData[0];
-    const initialDomain = candidate.focus_areas[0] || 'Prompt Engineering';
+    const candidates = this.getCandidates();
+    const candidate = candidates.find(c => (c.id || c.member?.id) === candidateId) || candidates[0];
+    const focusAreas = candidate.focus_areas || [];
+    const initialDomain = focusAreas[0] || 'Prompt Engineering';
 
     const { question, reasoning } = await generateAdaptiveQuestion({
       candidate,
@@ -59,7 +96,7 @@ export class InterviewAgentEngine {
 
     const newSession: InterviewSession = {
       sessionId,
-      candidateId: candidate.id,
+      candidateId: candidate.id || candidate.member?.id || candidateId,
       currentTurn: 1,
       maxTurns: 8,
       status: 'in_progress',
@@ -86,7 +123,8 @@ export class InterviewAgentEngine {
   }) {
     const { candidateId, sessionId, message } = params;
     const session = activeSessions.get(sessionId) || (await this.getOrStartSession(candidateId, sessionId)).session;
-    const candidate = (candidatesData as Candidate[]).find(c => c.id === candidateId) || candidatesData[0];
+    const candidates = this.getCandidates();
+    const candidate = candidates.find(c => (c.id || c.member?.id) === candidateId) || candidates[0];
 
     const currentTurnObj = session.turns[session.turns.length - 1];
     if (currentTurnObj) {

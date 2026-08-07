@@ -14,14 +14,17 @@ export async function generateAdaptiveQuestion(params: {
 }): Promise<{ question: string; reasoning: string }> {
   const { candidate, currentTurn, lastAnswer, recalledMemories, targetDomain } = params;
 
+  const strengths = candidate.known_strengths || [];
+  const focusGaps = candidate.focus_areas || [];
+
   if (genAI) {
     try {
       const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
       const prompt = `
 You are Dr. Aris Thorne, Lead AI Evaluator for an Enterprise AI Cohort.
 Conducting turn ${currentTurn} of 8 for candidate: ${candidate.name} (Target Role: ${candidate.target_role}).
-Candidate Strengths: ${candidate.known_strengths.join(', ')}.
-Candidate Focus Gaps: ${candidate.focus_areas.join(', ')}.
+Candidate Strengths: ${strengths.join(', ')}.
+Candidate Focus Gaps: ${focusGaps.join(', ')}.
 Target Topic Domain: ${targetDomain}.
 
 Last Candidate Response: ${lastAnswer || 'N/A (First Question)'}
@@ -96,6 +99,9 @@ function getFallbackAdaptiveQuestion(
     ? `Breeth AI recalled that candidate previously discussed ${recalledMemories[0].intent?.technical_concepts_mentioned.join(', ') || 'related concepts'}.`
     : '';
 
+  const focusGaps = candidate.focus_areas || [];
+  const strengths = candidate.known_strengths || [];
+
   if (domain.includes('Vector') || domain.includes('Embeddings')) {
     return {
       reasoning: `Candidate's target role is ${candidate.target_role}. ${memoryHint} Probing indexing trade-offs between recall and write throughput.`,
@@ -108,7 +114,7 @@ function getFallbackAdaptiveQuestion(
     };
   } else if (domain.includes('Agent')) {
     return {
-      reasoning: `Candidate profile highlights focus area: ${candidate.focus_areas[0] || 'Agentic AI'}. Testing ReAct loop safety safeguards.`,
+      reasoning: `Candidate profile highlights focus area: ${focusGaps[0] || 'Agentic AI'}. Testing ReAct loop safety safeguards.`,
       question: `When building ReAct agentic loops, how do you handle tool runtime exceptions and prevent unbounded recursion or runaway API costs when tools return invalid schemas?`
     };
   } else if (domain.includes('MCP') || domain.includes('Protocol')) {
@@ -137,15 +143,17 @@ function getFallbackEvaluationReport(
   const avgLength = answerLengths.reduce((a, b) => a + b, 0) / (answerLengths.length || 1);
 
   const isStrong = candidate.cohort_grade === 'A+' || avgLength > 180;
+  const strengths = candidate.known_strengths || [];
+  const focusGaps = candidate.focus_areas || [];
 
   return {
     strengths: [
-      `Demonstrated comprehensive technical clarity in ${candidate.known_strengths[0] || 'Agentic System Design'}.`,
+      `Demonstrated comprehensive technical clarity in ${strengths[0] || 'Agentic System Design'}.`,
       `Articulated concrete architectural trade-offs during multi-turn technical probing.`,
       `Showed solid mastery of enterprise AI patterns across 31-day cohort topics.`
     ],
     weaknesses: [
-      `Could deepen low-level performance tuning for ${candidate.focus_areas[0] || 'Vector DB Indexing'}.`,
+      `Could deepen low-level performance tuning for ${focusGaps[0] || 'Vector DB Indexing'}.`,
       `Needs further practical experience with production edge-case error recovery under high request concurrency.`
     ],
     topic_mastery: {

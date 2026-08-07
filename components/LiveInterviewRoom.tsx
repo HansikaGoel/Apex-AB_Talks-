@@ -38,6 +38,11 @@ export const LiveInterviewRoom: React.FC<LiveInterviewRoomProps> = ({
   candidate,
   onBackToDashboard,
 }) => {
+  const candidateId = candidate?.id || candidate?.member?.id || 'CAND-001';
+  const candidateName = candidate?.name || candidate?.member?.name || 'Candidate';
+  const candidateAvatar = candidate?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80';
+  const candidateRole = candidate?.target_role || candidate?.member?.jobRole || 'AI Engineer';
+
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState('');
   const [loading, setLoading] = useState(false);
@@ -50,7 +55,7 @@ export const LiveInterviewRoom: React.FC<LiveInterviewRoomProps> = ({
   const [feedback, setFeedback] = useState<InterviewFeedback | undefined>();
   const [isCompleted, setIsCompleted] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
-  const [sessionId] = useState(`session_${candidate.id}_${Date.now()}`);
+  const [sessionId] = useState(`session_${candidateId}_${Date.now()}`);
 
   const chatBottomRef = useRef<HTMLDivElement>(null);
 
@@ -68,7 +73,7 @@ export const LiveInterviewRoom: React.FC<LiveInterviewRoomProps> = ({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            candidate_id: candidate.id,
+            candidate_id: candidateId,
             session_id: sessionId,
             message: ''
           })
@@ -93,7 +98,7 @@ export const LiveInterviewRoom: React.FC<LiveInterviewRoomProps> = ({
       }
     }
     loadFirstQuestion();
-  }, [candidate.id, sessionId]);
+  }, [candidateId, sessionId]);
 
   // Submit Candidate Answer
   const handleSendMessage = async (e?: React.FormEvent) => {
@@ -119,7 +124,7 @@ export const LiveInterviewRoom: React.FC<LiveInterviewRoomProps> = ({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          candidate_id: candidate.id,
+          candidate_id: candidateId,
           session_id: sessionId,
           message: userText
         })
@@ -188,15 +193,15 @@ export const LiveInterviewRoom: React.FC<LiveInterviewRoomProps> = ({
             <ArrowLeft className="w-5 h-5" />
           </button>
           <img
-            src={candidate.avatar}
-            alt={candidate.name}
+            src={candidateAvatar}
+            alt={candidateName}
             className="w-10 h-10 rounded-full object-cover border-2 border-teal-500"
           />
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="font-bold text-slate-100 text-base">{candidate.name}</h2>
+              <h2 className="font-bold text-slate-100 text-base">{candidateName}</h2>
               <span className="text-[10px] px-2 py-0.5 rounded bg-teal-950 text-teal-300 border border-teal-800 font-mono">
-                {candidate.target_role}
+                {candidateRole}
               </span>
             </div>
             <p className="text-xs text-slate-400">Evaluating 31-Day AI Cohort Mastery</p>
@@ -251,7 +256,7 @@ export const LiveInterviewRoom: React.FC<LiveInterviewRoomProps> = ({
             <div className="space-y-1.5">
               <div className="flex items-center gap-2 text-[11px] text-slate-500 px-1">
                 <span className="font-semibold text-slate-300">
-                  {msg.sender === 'agent' ? 'Dr. Aris Thorne (AI Evaluator)' : candidate.name}
+                  {msg.sender === 'agent' ? 'Dr. Aris Thorne (AI Evaluator)' : candidateName}
                 </span>
                 <span>&bull;</span>
                 <span>{msg.timestamp}</span>
@@ -345,7 +350,7 @@ export const LiveInterviewRoom: React.FC<LiveInterviewRoomProps> = ({
         onClose={() => setIsMemoryOpen(false)}
         recalledMemories={recalledMemories}
         followUpReasoning={latestReasoning}
-        candidateName={candidate.name}
+        candidateName={candidateName}
       />
 
       {/* Evaluation Feedback Modal */}

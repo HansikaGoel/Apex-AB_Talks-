@@ -1,22 +1,45 @@
 export interface Candidate {
-  id: string;
-  name: string;
-  avatar: string;
-  target_role: string;
-  completed_days: number[];
-  skipped_days: number[];
-  known_strengths: string[];
-  focus_areas: string[];
-  cohort_grade: string;
-  bio: string;
+  id?: string;
+  name?: string;
+  avatar?: string;
+  target_role?: string;
+  completed_days?: number[];
+  skipped_days?: number[];
+  known_strengths?: string[];
+  focus_areas?: string[];
+  cohort_grade?: string;
+  bio?: string;
+  member?: {
+    id: string;
+    name: string;
+    jobRole: string;
+    yearsExperience?: number;
+    education?: string;
+    status?: string;
+  };
+  missions?: Array<{
+    day: number;
+    title: string;
+    passed?: boolean;
+    skipped?: boolean;
+    attempts?: number;
+  }>;
+  signals?: {
+    commitDays?: number;
+    missionsCompleted?: number;
+    missionsFirstTry?: number;
+  };
 }
 
 export interface CurriculumModule {
   day: number;
-  domain: string;
+  domain?: string;
   title: string;
-  concepts: string[];
-  sample_questions: string[];
+  concepts?: string[];
+  sample_questions?: string[];
+  type?: string;
+  tools?: string[];
+  objectives?: string[];
 }
 
 export interface MemoryEpisode {

@@ -19,6 +19,10 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
 }) => {
   if (!isOpen || !feedback) return null;
 
+  const candidateName = candidate?.name || candidate?.member?.name || 'Candidate';
+  const candidateAvatar = candidate?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80';
+  const candidateRole = candidate?.target_role || candidate?.member?.jobRole || 'AI Engineer';
+
   const getRecommendationBadge = (rec: string) => {
     switch (rec) {
       case 'Strong Hire':
@@ -39,15 +43,15 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-6">
           <div className="flex items-center gap-4">
             <img
-              src={candidate.avatar}
-              alt={candidate.name}
+              src={candidateAvatar}
+              alt={candidateName}
               className="w-16 h-16 rounded-full object-cover border-2 border-teal-500"
             />
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-2xl font-extrabold text-slate-100">{candidate.name}</h2>
+                <h2 className="text-2xl font-extrabold text-slate-100">{candidateName}</h2>
                 <span className="text-xs px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-400 font-mono">
-                  {candidate.target_role}
+                  {candidateRole}
                 </span>
               </div>
               <p className="text-xs text-slate-400 mt-1">

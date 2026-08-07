@@ -17,9 +17,10 @@ export default function Home() {
       try {
         const res = await fetch('/api/candidates');
         const data = await res.json();
-        setCandidates(data);
-        if (data.length > 0) {
-          setSelectedCandidate(data[0]);
+        const list: Candidate[] = Array.isArray(data) ? data : (data?.candidates || []);
+        setCandidates(list);
+        if (list.length > 0) {
+          setSelectedCandidate(list[0]);
         }
       } catch (err) {
         console.error('Failed to load candidate profiles:', err);

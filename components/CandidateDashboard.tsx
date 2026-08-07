@@ -5,7 +5,7 @@ import { Candidate } from '@/lib/types';
 import { UserCheck, Award, AlertCircle, ChevronRight, Sparkles, BookOpen, Layers } from 'lucide-react';
 
 interface CandidateDashboardProps {
-  candidates: Candidate[];
+  candidates: Candidate[] | { candidates: Candidate[] } | any;
   selectedCandidateId: string | null;
   onSelectCandidate: (candidate: Candidate) => void;
   onStartInterview: () => void;
@@ -17,7 +17,13 @@ export const CandidateDashboard: React.FC<CandidateDashboardProps> = ({
   onSelectCandidate,
   onStartInterview,
 }) => {
-  const activeCandidate = candidates.find(c => c.id === selectedCandidateId) || candidates[0];
+  const candidateList: Candidate[] = Array.isArray(candidates)
+    ? candidates
+    : (candidates as any)?.candidates || [];
+
+  const getCandidateId = (c: any) => c?.id || c?.member?.id || '';
+
+  const activeCandidate = candidateList.find(c => getCandidateId(c) === selectedCandidateId) || candidateList[0];
 
   return (
     <div className="w-full max-w-7xl mx-auto space-y-8 animate-fadeIn">
@@ -43,7 +49,7 @@ export const CandidateDashboard: React.FC<CandidateDashboardProps> = ({
               onClick={onStartInterview}
               className="flex items-center gap-3 px-6 py-3.5 rounded-xl bg-gradient-to-r from-teal-500 to-emerald-600 hover:from-teal-400 hover:to-emerald-500 text-slate-950 font-bold shadow-lg shadow-teal-500/20 hover:shadow-teal-500/40 transition-all duration-200 cursor-pointer text-sm whitespace-nowrap"
             >
-              <span>Launch Interview for {activeCandidate.name.split(' ')[0]}</span>
+              <span>Launch Interview for {activeCandidate.name?.split(' ')[0] || 'Candidate'}</span>
               <ChevronRight className="w-5 h-5" />
             </button>
           )}
@@ -52,14 +58,17 @@ export const CandidateDashboard: React.FC<CandidateDashboardProps> = ({
 
       {/* Candidate Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {candidates.map((candidate) => {
-          const isSelected = candidate.id === selectedCandidateId;
-          const completedCount = candidate.completed_days.length;
-          const skippedCount = candidate.skipped_days.length;
+        {candidateList.map((candidate) => {
+          const candId = getCandidateId(candidate);
+          const isSelected = candId === selectedCandidateId;
+          const completedCount = candidate?.completed_days?.length || 0;
+          const skippedCount = candidate?.skipped_days?.length || 0;
+          const knownStrengths = candidate?.known_strengths || [];
+          const focusAreas = candidate?.focus_areas || [];
 
           return (
             <div
-              key={candidate.id}
+              key={candId}
               onClick={() => onSelectCandidate(candidate)}
               className={`relative rounded-2xl p-6 transition-all duration-300 cursor-pointer border flex flex-col justify-between ${
                 isSelected
@@ -115,7 +124,7 @@ export const CandidateDashboard: React.FC<CandidateDashboardProps> = ({
                     <span>Known Strengths:</span>
                   </div>
                   <div className="flex flex-wrap gap-1">
-                    {candidate.known_strengths.map((str, idx) => (
+                    {knownStrengths.map((str, idx) => (
                       <span
                         key={idx}
                         className="px-2 py-0.5 rounded bg-teal-950/60 text-teal-300 border border-teal-800/50 text-[10px]"
@@ -132,7 +141,7 @@ export const CandidateDashboard: React.FC<CandidateDashboardProps> = ({
                     <span>Focus Gaps for Agent:</span>
                   </div>
                   <div className="flex flex-wrap gap-1">
-                    {candidate.focus_areas.map((fa, idx) => (
+                    {focusAreas.map((fa, idx) => (
                       <span
                         key={idx}
                         className="px-2 py-0.5 rounded bg-amber-950/50 text-amber-300 border border-amber-800/40 text-[10px]"
@@ -181,3 +190,4 @@ export const CandidateDashboard: React.FC<CandidateDashboardProps> = ({
     </div>
   );
 };
+
