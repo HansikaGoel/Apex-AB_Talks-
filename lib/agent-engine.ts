@@ -192,9 +192,9 @@ export class InterviewAgentEngine {
       activeSessions.set(sessionId, session);
 
       return {
-        reply: "Thank you. That concludes our technical evaluation.",
+        reply: "Thank you for completing the technical evaluation.",
         done: true,
-        next_question: "Thank you. That concludes our technical evaluation.",
+        next_question: "Thank you for completing the technical evaluation.",
         follow_up_reasoning: "All 8 adaptive technical turns across curriculum domains have been evaluated.",
         interview_status: 'completed' as const,
         current_step: session.currentTurn,
@@ -229,13 +229,15 @@ export class InterviewAgentEngine {
       session.coveredTopics.push(nextDomain);
     }
 
-    const turnsHistory = session.turns.map(t => ({
-      question: t.question,
-      candidateAnswer: t.candidateAnswer,
-      domain: t.domain
-    }));
+    const fullTranscriptHistory: Array<{ role: 'user' | 'model'; content: string }> = [];
+    session.turns.forEach(t => {
+      fullTranscriptHistory.push({ role: 'model', content: t.question });
+      if (t.candidateAnswer) {
+        fullTranscriptHistory.push({ role: 'user', content: t.candidateAnswer });
+      }
+    });
 
-    // 5. Generate next question and follow-up reasoning with transcript history
+    // 5. Generate next question and follow-up reasoning with full transcript context
     const { question: nextQuestion, reasoning: nextReasoning } = await generateAdaptiveQuestion({
       candidate,
       currentTurn: nextTurnNumber,
@@ -244,7 +246,7 @@ export class InterviewAgentEngine {
       recalledMemories,
       targetDomain: nextDomain,
       persona: persona || session.persona || 'Strict Tech Lead',
-      history: turnsHistory
+      history: fullTranscriptHistory as any
     });
 
     session.currentTurn = nextTurnNumber;

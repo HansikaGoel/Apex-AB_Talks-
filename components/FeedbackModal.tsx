@@ -93,20 +93,20 @@ ${summaryText}`;
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fadeIn overflow-y-auto">
-      <div className="w-full max-w-4xl bg-slate-900 border border-slate-800 rounded-3xl p-6 md:p-8 space-y-6 shadow-2xl my-8">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/80 backdrop-blur-md overflow-y-auto animate-fadeIn">
+      <div className="relative w-full max-w-4xl max-h-[90vh] bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 overflow-y-auto shadow-2xl flex flex-col gap-6 my-auto">
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-6">
           <div className="flex items-center gap-4">
             <img
               src={candidateAvatar}
               alt={candidateName}
-              className="w-16 h-16 rounded-full object-cover border-2 border-teal-500"
+              className="w-16 h-16 rounded-full object-cover border-2 border-teal-500 shrink-0"
             />
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <h2 className="text-2xl font-extrabold text-slate-100">{candidateName}</h2>
-                <span className="text-xs px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-400 font-mono">
+                <span className="text-xs px-2.5 py-0.5 rounded-full bg-slate-800 text-teal-300 font-mono">
                   {candidateRole}
                 </span>
               </div>
@@ -131,22 +131,22 @@ ${summaryText}`;
             <span>Candidate Competency Scorecard</span>
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 bg-slate-950/60 border border-slate-800 rounded-2xl p-4">
-            <div className="bg-slate-900/80 p-3 rounded-xl border border-slate-800 text-center space-y-1">
-              <div className="text-[10px] text-slate-500 uppercase font-medium">Technical Accuracy</div>
-              <div className="text-xl font-mono font-extrabold text-teal-400">{scores.technical_accuracy}%</div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 bg-slate-950/60 border border-slate-800 rounded-2xl p-4 mt-1">
+            <div className="bg-slate-900/80 p-3.5 rounded-xl border border-slate-800 text-center space-y-1">
+              <div className="text-[10px] text-slate-400 uppercase font-bold tracking-wider pt-0.5">Technical Accuracy</div>
+              <div className="text-2xl font-mono font-extrabold text-teal-400 mt-1">{scores.technical_accuracy}%</div>
             </div>
-            <div className="bg-slate-900/80 p-3 rounded-xl border border-slate-800 text-center space-y-1">
-              <div className="text-[10px] text-slate-500 uppercase font-medium">Communication</div>
-              <div className="text-xl font-mono font-extrabold text-emerald-400">{scores.communication}%</div>
+            <div className="bg-slate-900/80 p-3.5 rounded-xl border border-slate-800 text-center space-y-1">
+              <div className="text-[10px] text-slate-400 uppercase font-bold tracking-wider pt-0.5">Communication</div>
+              <div className="text-2xl font-mono font-extrabold text-emerald-400 mt-1">{scores.communication}%</div>
             </div>
-            <div className="bg-slate-900/80 p-3 rounded-xl border border-slate-800 text-center space-y-1">
-              <div className="text-[10px] text-slate-500 uppercase font-medium">Problem Solving</div>
-              <div className="text-xl font-mono font-extrabold text-indigo-400">{scores.problem_solving}%</div>
+            <div className="bg-slate-900/80 p-3.5 rounded-xl border border-slate-800 text-center space-y-1">
+              <div className="text-[10px] text-slate-400 uppercase font-bold tracking-wider pt-0.5">Problem Solving</div>
+              <div className="text-2xl font-mono font-extrabold text-indigo-400 mt-1">{scores.problem_solving}%</div>
             </div>
-            <div className="bg-slate-900/80 p-3 rounded-xl border border-slate-800 text-center space-y-1">
-              <div className="text-[10px] text-slate-500 uppercase font-medium">Confidence</div>
-              <div className="text-xl font-mono font-extrabold text-amber-400">{scores.confidence}%</div>
+            <div className="bg-slate-900/80 p-3.5 rounded-xl border border-slate-800 text-center space-y-1">
+              <div className="text-[10px] text-slate-400 uppercase font-bold tracking-wider pt-0.5">Confidence</div>
+              <div className="text-2xl font-mono font-extrabold text-amber-400 mt-1">{scores.confidence}%</div>
             </div>
           </div>
         </div>
@@ -159,7 +159,7 @@ ${summaryText}`;
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-950/60 border border-slate-800 rounded-2xl p-5">
-            {Object.entries(feedback?.topic_mastery || { "System Architecture": 92, "RAG Retrieval": 88, "Prompt Security": 90, "MCP Tooling": 85 }).map(([topic, pct], idx) => (
+            {Object.entries(feedback?.topic_mastery || { "System Architecture": 88, "RAG Retrieval": 86, "Prompt Security": 90, "MCP Tooling": 84 }).map(([topic, pct], idx) => (
               <div key={idx} className="space-y-1.5">
                 <div className="flex justify-between text-xs font-medium">
                   <span className="text-slate-300">{topic}</span>
@@ -223,7 +223,7 @@ ${summaryText}`;
         </div>
 
         {/* Footer Actions & Export Buttons */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-slate-800">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-slate-800 mt-2">
           <div className="text-xs text-slate-500 font-mono">
             Breeth AI Memory Verified &bull; ABTalks Hackathon 2026
           </div>

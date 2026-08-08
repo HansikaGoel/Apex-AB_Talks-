@@ -354,15 +354,15 @@ export const LiveInterviewRoom: React.FC<LiveInterviewRoomProps> = ({
               candidateName,
               candidateRole,
               scores: data.feedback?.scores || {
-                technical_accuracy: 90,
-                communication: 88,
-                problem_solving: 85,
-                confidence: 92
+                technical_accuracy: 75,
+                communication: 75,
+                problem_solving: 75,
+                confidence: 75
               },
               hiring_recommendation: data.feedback?.hiring_recommendation || 'Hire',
               strengths: data.feedback?.strengths || [],
               weaknesses: data.feedback?.gaps || data.feedback?.weaknesses || [],
-              summary: data.feedback?.summary || 'Candidate demonstrated solid proficiency across cohort modules.'
+              summary: data.feedback?.summary || 'Assessment completed.'
             };
             localStorage.setItem('interview_history', JSON.stringify([newRecord, ...existingHistory]));
           } catch (e) {
