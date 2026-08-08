@@ -107,6 +107,21 @@ export const LiveInterviewRoom: React.FC<LiveInterviewRoomProps> = ({
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.rate = voiceSpeed;
     utterance.pitch = persona === 'Strict Tech Lead' ? 0.95 : 1.05;
+
+    // Pause mic during AI playback and resume upon completion
+    utterance.onstart = () => {
+      if (recognitionRef.current) {
+        try { recognitionRef.current.stop(); } catch (e) {}
+      }
+    };
+
+    utterance.onend = () => {
+      if (isRecordingRef.current) {
+        setTimeout(() => {
+          startAudioCapture();
+        }, 200);
+      }
+    };
     
     // Pick an English voice if available
     const voices = window.speechSynthesis.getVoices();
