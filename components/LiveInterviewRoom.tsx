@@ -23,7 +23,8 @@ import {
   CheckCircle2,
   Sliders,
   Radio,
-  FileText
+  FileText,
+  Clock
 } from 'lucide-react';
 
 interface ChatMessage {
@@ -68,6 +69,9 @@ export const LiveInterviewRoom: React.FC<LiveInterviewRoomProps> = ({
   const [voiceSpeed, setVoiceSpeed] = useState<number>(1.0);
   const [speechEnabled, setSpeechEnabled] = useState<boolean>(true);
 
+  // 5-Minute Per-Question Countdown Timer State (300 seconds)
+  const [timeLeft, setTimeLeft] = useState<number>(300);
+
   // Audio / Mic State
   const [isRecording, setIsRecording] = useState(false);
   const [micStream, setMicStream] = useState<MediaStream | null>(null);
@@ -91,6 +95,42 @@ export const LiveInterviewRoom: React.FC<LiveInterviewRoomProps> = ({
       };
     }
   }, []);
+
+  // Format seconds into MM:SS
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  // 5-Minute Countdown Timer Hook with Auto-Advance Capability
+  useEffect(() => {
+    if (!hasStarted || loading || isCompleted) return;
+
+    const timer = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          // Auto-advance turn when 5-minute timer expires
+          setTimeout(() => {
+            handleTimeExpired();
+          }, 0);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [hasStarted, loading, isCompleted, currentStep]);
+
+  const handleTimeExpired = () => {
+    if (loading || isCompleted) return;
+    const currentInput = inputText.trim();
+    const textToSubmit = currentInput.length > 0 ? currentInput : 'Candidate did not provide an answer within the 5-minute time limit.';
+    handleSendMessage(undefined, textToSubmit);
+    setTimeLeft(300);
+  };
 
   // Auto-scroll chat to bottom
   useEffect(() => {
@@ -285,12 +325,13 @@ export const LiveInterviewRoom: React.FC<LiveInterviewRoomProps> = ({
   };
 
   // Submit Candidate Answer
-  const handleSendMessage = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    if (!inputText.trim() || loading || isCompleted) return;
+  const handleSendMessage = async (e?: React.FormEvent, textOverride?: string) => {
+    if (e && typeof e !== 'string' && 'preventDefault' in e) e.preventDefault();
+    const userText = (textOverride || inputText).trim();
+    if (!userText || loading || isCompleted) return;
 
-    const userText = inputText.trim();
     setInputText('');
+    setTimeLeft(300);
 
     // Add candidate message to chat
     const userMsg: ChatMessage = {
@@ -444,6 +485,16 @@ export const LiveInterviewRoom: React.FC<LiveInterviewRoomProps> = ({
 
         {/* Persona & Voice Speed Toggles + Breeth AI Inspector */}
         <div className="flex flex-wrap items-center gap-3 w-full md:w-auto justify-end text-xs">
+          {/* 5-Minute Per-Question Countdown Timer Badge */}
+          <div className={`px-3 py-1.5 rounded-xl border flex items-center gap-1.5 font-mono text-xs font-bold transition-all shadow-sm ${
+            timeLeft < 60
+              ? 'bg-rose-950/80 text-rose-400 border-rose-800 animate-pulse'
+              : 'bg-slate-950 border-slate-800 text-teal-300'
+          }`}>
+            <Clock className={`w-3.5 h-3.5 ${timeLeft < 60 ? 'text-rose-400' : 'text-teal-400'}`} />
+            <span>{formatTime(timeLeft)}</span>
+          </div>
+
           {/* Persona Selector */}
           <div className="flex items-center gap-1.5 bg-slate-950 border border-slate-800 rounded-xl p-1">
             <button
