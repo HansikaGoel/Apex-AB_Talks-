@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useState } from 'react';
+import Link from 'next/link';
 import { Candidate } from '@/lib/types';
-import { Sparkles, UserCheck, Layers, BookOpen, ChevronRight, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Sparkles, UserCheck, Layers, BookOpen, ChevronRight, CheckCircle2, AlertCircle, BarChart3 } from 'lucide-react';
 
 interface CandidateSetupProps {
   candidates: Candidate[];
@@ -80,13 +81,22 @@ export const CandidateSetup: React.FC<CandidateSetupProps> = ({
           </p>
         </div>
 
-        <button
-          onClick={handleLaunchCustom}
-          className="flex items-center gap-3 px-6 py-3.5 rounded-xl bg-gradient-to-r from-teal-500 to-emerald-500 text-slate-950 font-extrabold text-sm shadow-xl shadow-teal-500/20 hover:scale-105 transition-all cursor-pointer whitespace-nowrap"
-        >
-          <span>Launch Technical Assessment</span>
-          <ChevronRight className="w-5 h-5" />
-        </button>
+        <div className="flex flex-col sm:flex-row items-center gap-3">
+          <Link
+            href="/dashboard"
+            className="flex items-center gap-2 px-5 py-3.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-teal-300 font-semibold border border-slate-700 transition-all text-xs whitespace-nowrap cursor-pointer"
+          >
+            <BarChart3 className="w-4 h-4 text-teal-400" />
+            <span>Analytics Dashboard</span>
+          </Link>
+          <button
+            onClick={handleLaunchCustom}
+            className="flex items-center gap-3 px-6 py-3.5 rounded-xl bg-gradient-to-r from-teal-500 to-emerald-500 text-slate-950 font-extrabold text-sm shadow-xl shadow-teal-500/20 hover:scale-105 transition-all cursor-pointer whitespace-nowrap"
+          >
+            <span>Launch Technical Assessment</span>
+            <ChevronRight className="w-5 h-5" />
+          </button>
+        </div>
       </div>
 
       {/* Candidate Profile Selection */}

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { Candidate } from '@/lib/types';
 import { CandidateDashboard } from '@/components/CandidateDashboard';
 import { CandidateSetup } from '@/components/CandidateSetup';
@@ -9,23 +9,27 @@ import { LiveInterviewRoom } from '@/components/LiveInterviewRoom';
 import { LandingSplash } from '@/components/LandingSplash';
 import { Loader2 } from 'lucide-react';
 
-function HomeContent() {
+function PageContent() {
   const searchParams = useSearchParams();
-  const stepParam = searchParams.get('step');
+  const router = useRouter();
 
-  const [showSplash, setShowSplash] = useState(true);
+  // Default step based on URL query param: '?step=setup' -> 1, default -> 0
+  const urlStep = searchParams.get('step');
+  const initialStep = urlStep === 'setup' || urlStep === '1' || urlStep === 'candidates' ? 1 : 0;
+
+  const [currentStep, setCurrentStep] = useState<number>(initialStep);
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [selectedCandidate, setSelectedCandidate] = useState<Candidate | null>(null);
-  const [viewState, setViewState] = useState<'dashboard' | 'setup' | 'interview'>('dashboard');
   const [loading, setLoading] = useState(true);
 
-  // Inspect URL search parameters to route back directly to Candidate Selection Hub
+  // Synchronize URL search params with active step state
   useEffect(() => {
-    if (stepParam === 'setup' || stepParam === 'candidates') {
-      setShowSplash(false);
-      setViewState('setup');
+    if (urlStep === 'setup' || urlStep === '1' || urlStep === 'candidates') {
+      setCurrentStep(1);
+    } else if (urlStep === 'landing' || urlStep === '0') {
+      setCurrentStep(0);
     }
-  }, [stepParam]);
+  }, [urlStep]);
 
   useEffect(() => {
     async function fetchCandidates() {
@@ -46,8 +50,9 @@ function HomeContent() {
     fetchCandidates();
   }, []);
 
-  if (showSplash) {
-    return <LandingSplash onDismiss={() => setShowSplash(false)} />;
+  // Step 0: Hero Landing Splash
+  if (currentStep === 0) {
+    return <LandingSplash onDismiss={() => setCurrentStep(1)} />;
   }
 
   if (loading) {
@@ -61,28 +66,21 @@ function HomeContent() {
 
   return (
     <div className="w-full animate-fadeIn">
-      {viewState === 'dashboard' ? (
-        <CandidateDashboard
-          candidates={candidates}
-          selectedCandidateId={selectedCandidate?.id || selectedCandidate?.member?.id || null}
-          onSelectCandidate={(cand) => setSelectedCandidate(cand)}
-          onStartInterview={() => setViewState('setup')}
-        />
-      ) : viewState === 'setup' ? (
+      {currentStep === 1 ? (
         <CandidateSetup
           candidates={candidates}
           selectedCandidateId={selectedCandidate?.id || selectedCandidate?.member?.id || null}
           onSelectCandidate={(cand) => setSelectedCandidate(cand)}
           onLaunchInterview={(customCand) => {
             if (customCand) setSelectedCandidate(customCand);
-            setViewState('interview');
+            setCurrentStep(2);
           }}
         />
       ) : (
         selectedCandidate && (
           <LiveInterviewRoom
             candidate={selectedCandidate}
-            onBackToDashboard={() => setViewState('dashboard')}
+            onBackToDashboard={() => setCurrentStep(1)}
           />
         )
       )}
@@ -92,12 +90,15 @@ function HomeContent() {
 
 export default function Home() {
   return (
-    <Suspense fallback={
-      <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
-        <Loader2 className="w-8 h-8 text-teal-400 animate-spin" />
-      </div>
-    }>
-      <HomeContent />
+    <Suspense
+      fallback={
+        <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
+          <Loader2 className="w-8 h-8 text-teal-400 animate-spin" />
+          <p className="text-xs text-slate-400 font-mono">Loading Page...</p>
+        </div>
+      }
+    >
+      <PageContent />
     </Suspense>
   );
 }
