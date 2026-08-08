@@ -192,26 +192,35 @@ export class InterviewAgentEngine {
       activeSessions.set(sessionId, session);
 
       return {
-        next_question: "Interview Completed. Thank you!",
+        reply: "Thank you. That concludes our technical evaluation.",
+        done: true,
+        next_question: "Thank you. That concludes our technical evaluation.",
         follow_up_reasoning: "All 8 adaptive technical turns across curriculum domains have been evaluated.",
         interview_status: 'completed' as const,
         current_step: session.currentTurn,
         total_steps: session.maxTurns,
         covered_topics: session.coveredTopics,
         recalled_memories: recalledMemories,
-        feedback
+        feedback: {
+          summary: feedback.summary,
+          strengths: feedback.strengths,
+          gaps: feedback.gaps || feedback.weaknesses || [],
+          next: feedback.next || ['Review Days 12-14 on hybrid vector search'],
+          scores: feedback.scores,
+          hiring_recommendation: feedback.hiring_recommendation
+        }
       };
     }
 
     // 4. Determine next domain to cover (at least 4 distinct domains across 8 turns)
     const nextTurnNumber = session.currentTurn + 1;
     const availableDomains = [
+      'RAG & Hybrid Vector Retrieval',
+      'Vector Databases (HNSW / Indexing)',
       'Prompt Engineering & Security',
-      'Embeddings & Vector Databases',
-      'Advanced RAG Systems',
       'Agentic AI & Tool Execution',
       'Model Context Protocol (MCP)',
-      'Enterprise AI Deployment'
+      'AI Deployment (vLLM / Quantization)'
     ];
 
     const nextDomain = availableDomains.find(d => !session.coveredTopics.includes(d)) || availableDomains[nextTurnNumber % availableDomains.length];
@@ -250,6 +259,8 @@ export class InterviewAgentEngine {
     activeSessions.set(sessionId, session);
 
     return {
+      reply: nextQuestion,
+      done: false,
       next_question: nextQuestion,
       follow_up_reasoning: nextReasoning,
       interview_status: 'in_progress' as const,

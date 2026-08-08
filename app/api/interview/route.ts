@@ -34,8 +34,8 @@ export async function POST(req: NextRequest) {
         feedback: session.feedback ? {
           summary: session.feedback.summary,
           strengths: session.feedback.strengths,
-          gaps: session.feedback.weaknesses,
-          next: session.feedback.weaknesses
+          gaps: session.feedback.gaps || (session.feedback as any).weaknesses || [],
+          next: session.feedback.next || ['Review Days 12-14 on hybrid vector search']
         } : undefined
       });
     }
@@ -48,10 +48,10 @@ export async function POST(req: NextRequest) {
       persona
     });
 
-    const isDone = result.interview_status === 'completed';
+    const isDone = result.done || result.interview_status === 'completed';
 
     return NextResponse.json({
-      reply: result.next_question,
+      reply: result.reply || result.next_question,
       done: isDone,
       next_question: result.next_question,
       follow_up_reasoning: result.follow_up_reasoning,
@@ -60,11 +60,11 @@ export async function POST(req: NextRequest) {
       total_steps: result.total_steps,
       covered_topics: result.covered_topics,
       recalled_memories: result.recalled_memories,
-      feedback: result.feedback ? {
+      feedback: isDone && result.feedback ? {
         summary: result.feedback.summary,
         strengths: result.feedback.strengths,
-        gaps: result.feedback.weaknesses,
-        next: result.feedback.weaknesses,
+        gaps: result.feedback.gaps || (result.feedback as any).weaknesses || [],
+        next: result.feedback.next || ['Review Days 12-14 on hybrid vector search'],
         scores: result.feedback.scores,
         hiring_recommendation: result.feedback.hiring_recommendation
       } : undefined

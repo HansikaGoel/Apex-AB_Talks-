@@ -38,6 +38,9 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
     }
   };
 
+  const strengthsList = feedback.strengths || [];
+  const gapsList = feedback.gaps || feedback.weaknesses || [];
+
   const handleDownloadReport = () => {
     const reportData = {
       candidate_name: candidateName,
@@ -45,8 +48,8 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
       hiring_recommendation: feedback.hiring_recommendation,
       performance_scores: feedback.scores,
       topic_mastery: feedback.topic_mastery,
-      strengths: feedback.strengths,
-      weaknesses: feedback.weaknesses,
+      strengths: strengthsList,
+      gaps: gapsList,
       executive_summary: feedback.summary,
       timestamp: new Date().toISOString()
     };
@@ -68,10 +71,10 @@ Candidate: ${candidateName} (${candidateRole})
 Hiring Recommendation: ${feedback.hiring_recommendation}
 
 Key Strengths:
-${feedback.strengths.map(s => `- ${s}`).join('\n')}
+${strengthsList.map(s => `- ${s}`).join('\n')}
 
 Areas for Improvement:
-${feedback.weaknesses.map(w => `- ${w}`).join('\n')}
+${gapsList.map(w => `- ${w}`).join('\n')}
 
 Executive Summary:
 ${feedback.summary}`;
@@ -114,8 +117,8 @@ ${feedback.summary}`;
 
           <div className="flex flex-col items-start md:items-end gap-1">
             <span className="text-[10px] text-slate-400 uppercase font-semibold">Hiring Recommendation</span>
-            <div className={`px-4 py-1.5 rounded-xl border text-sm font-bold tracking-wide shadow-md ${getRecommendationBadge(feedback.hiring_recommendation)}`}>
-              {feedback.hiring_recommendation}
+            <div className={`px-4 py-1.5 rounded-xl border text-sm font-bold tracking-wide shadow-md ${getRecommendationBadge(feedback.hiring_recommendation || 'Hire')}`}>
+              {feedback.hiring_recommendation || 'Hire'}
             </div>
           </div>
         </div>
@@ -181,7 +184,7 @@ ${feedback.summary}`;
               <span>Demonstrated Key Strengths</span>
             </div>
             <ul className="space-y-2">
-              {feedback.strengths.map((s, idx) => (
+              {strengthsList.map((s, idx) => (
                 <li key={idx} className="flex items-start gap-2.5 text-xs text-slate-300 leading-relaxed">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 mt-1.5 shrink-0" />
                   <span>{s}</span>
@@ -197,7 +200,7 @@ ${feedback.summary}`;
               <span>Areas for Growth & Improvement</span>
             </div>
             <ul className="space-y-2">
-              {feedback.weaknesses.map((w, idx) => (
+              {gapsList.map((w, idx) => (
                 <li key={idx} className="flex items-start gap-2.5 text-xs text-slate-300 leading-relaxed">
                   <span className="w-1.5 h-1.5 rounded-full bg-amber-400 mt-1.5 shrink-0" />
                   <span>{w}</span>

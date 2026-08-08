@@ -5,6 +5,9 @@ export interface Candidate {
   target_role?: string;
   completed_days?: number[];
   skipped_days?: number[];
+  completed_missions?: string[];
+  skipped_topics?: string[];
+  learning_signals?: Record<string, any>;
   known_strengths?: string[];
   focus_areas?: string[];
   cohort_grade?: string;
@@ -80,17 +83,19 @@ export interface InterviewTurn {
 }
 
 export interface InterviewFeedback {
+  summary: string;
   strengths: string[];
-  weaknesses: string[];
-  topic_mastery: Record<string, number>;
+  weaknesses?: string[];
+  gaps?: string[];
+  next?: string[];
+  topic_mastery?: Record<string, number>;
   scores?: {
     technical_accuracy: number;
     communication: number;
     problem_solving: number;
     confidence: number;
   };
-  hiring_recommendation: 'Strong Hire' | 'Hire' | 'Lean Hire' | 'No Hire';
-  summary: string;
+  hiring_recommendation?: 'Strong Hire' | 'Hire' | 'Lean Hire' | 'No Hire';
 }
 
 export interface InterviewSession {
@@ -113,6 +118,8 @@ export interface APIInterviewRequest {
 }
 
 export interface APIInterviewResponse {
+  reply: string;
+  done: boolean;
   next_question: string;
   follow_up_reasoning: string;
   interview_status: 'in_progress' | 'completed';

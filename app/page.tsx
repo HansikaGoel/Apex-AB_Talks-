@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Candidate } from '@/lib/types';
 import { CandidateDashboard } from '@/components/CandidateDashboard';
+import { CandidateSetup } from '@/components/CandidateSetup';
 import { LiveInterviewRoom } from '@/components/LiveInterviewRoom';
 import { LandingSplash } from '@/components/LandingSplash';
 import { Loader2 } from 'lucide-react';
@@ -11,7 +12,7 @@ export default function Home() {
   const [showSplash, setShowSplash] = useState(true);
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [selectedCandidate, setSelectedCandidate] = useState<Candidate | null>(null);
-  const [viewState, setViewState] = useState<'dashboard' | 'interview'>('dashboard');
+  const [viewState, setViewState] = useState<'dashboard' | 'setup' | 'interview'>('dashboard');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -53,7 +54,17 @@ export default function Home() {
           candidates={candidates}
           selectedCandidateId={selectedCandidate?.id || selectedCandidate?.member?.id || null}
           onSelectCandidate={(cand) => setSelectedCandidate(cand)}
-          onStartInterview={() => setViewState('interview')}
+          onStartInterview={() => setViewState('setup')}
+        />
+      ) : viewState === 'setup' ? (
+        <CandidateSetup
+          candidates={candidates}
+          selectedCandidateId={selectedCandidate?.id || selectedCandidate?.member?.id || null}
+          onSelectCandidate={(cand) => setSelectedCandidate(cand)}
+          onLaunchInterview={(customCand) => {
+            if (customCand) setSelectedCandidate(customCand);
+            setViewState('interview');
+          }}
         />
       ) : (
         selectedCandidate && (
