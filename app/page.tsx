@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Candidate } from '@/lib/types';
 import { CandidateDashboard } from '@/components/CandidateDashboard';
 import { CandidateSetup } from '@/components/CandidateSetup';
@@ -8,12 +9,23 @@ import { LiveInterviewRoom } from '@/components/LiveInterviewRoom';
 import { LandingSplash } from '@/components/LandingSplash';
 import { Loader2 } from 'lucide-react';
 
-export default function Home() {
+function HomeContent() {
+  const searchParams = useSearchParams();
+  const stepParam = searchParams.get('step');
+
   const [showSplash, setShowSplash] = useState(true);
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [selectedCandidate, setSelectedCandidate] = useState<Candidate | null>(null);
   const [viewState, setViewState] = useState<'dashboard' | 'setup' | 'interview'>('dashboard');
   const [loading, setLoading] = useState(true);
+
+  // Inspect URL search parameters to route back directly to Candidate Selection Hub
+  useEffect(() => {
+    if (stepParam === 'setup' || stepParam === 'candidates') {
+      setShowSplash(false);
+      setViewState('setup');
+    }
+  }, [stepParam]);
 
   useEffect(() => {
     async function fetchCandidates() {
@@ -75,5 +87,17 @@ export default function Home() {
         )
       )}
     </div>
+  );
+}
+
+export default function Home() {
+  return (
+    <Suspense fallback={
+      <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
+        <Loader2 className="w-8 h-8 text-teal-400 animate-spin" />
+      </div>
+    }>
+      <HomeContent />
+    </Suspense>
   );
 }

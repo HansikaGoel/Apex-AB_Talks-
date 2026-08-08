@@ -157,7 +157,7 @@ export default function AnalyticsDashboardPage() {
       <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 pb-6 border-b border-slate-800">
         <div className="flex items-center gap-4">
           <button
-            onClick={() => router.back()}
+            onClick={() => router.push('/?step=setup')}
             className="p-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 transition-colors flex items-center gap-2 text-xs font-semibold cursor-pointer"
           >
             <ArrowLeft className="w-4 h-4 text-teal-400" />
