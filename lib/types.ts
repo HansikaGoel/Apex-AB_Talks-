@@ -83,6 +83,12 @@ export interface InterviewFeedback {
   strengths: string[];
   weaknesses: string[];
   topic_mastery: Record<string, number>;
+  scores?: {
+    technical_accuracy: number;
+    communication: number;
+    problem_solving: number;
+    confidence: number;
+  };
   hiring_recommendation: 'Strong Hire' | 'Hire' | 'Lean Hire' | 'No Hire';
   summary: string;
 }
@@ -94,6 +100,7 @@ export interface InterviewSession {
   maxTurns: number;
   status: 'in_progress' | 'completed';
   coveredTopics: string[];
+  persona?: 'Encouraging Mentor' | 'Strict Tech Lead';
   turns: InterviewTurn[];
   feedback?: InterviewFeedback;
 }
@@ -102,6 +109,7 @@ export interface APIInterviewRequest {
   candidate_id: string;
   message?: string;
   session_id?: string;
+  persona?: 'Encouraging Mentor' | 'Strict Tech Lead';
 }
 
 export interface APIInterviewResponse {

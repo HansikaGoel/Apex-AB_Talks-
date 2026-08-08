@@ -4,9 +4,11 @@ import React, { useState, useEffect } from 'react';
 import { Candidate } from '@/lib/types';
 import { CandidateDashboard } from '@/components/CandidateDashboard';
 import { LiveInterviewRoom } from '@/components/LiveInterviewRoom';
+import { LandingSplash } from '@/components/LandingSplash';
 import { Loader2 } from 'lucide-react';
 
 export default function Home() {
+  const [showSplash, setShowSplash] = useState(true);
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [selectedCandidate, setSelectedCandidate] = useState<Candidate | null>(null);
   const [viewState, setViewState] = useState<'dashboard' | 'interview'>('dashboard');
@@ -31,6 +33,10 @@ export default function Home() {
     fetchCandidates();
   }, []);
 
+  if (showSplash) {
+    return <LandingSplash onDismiss={() => setShowSplash(false)} />;
+  }
+
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
@@ -41,11 +47,11 @@ export default function Home() {
   }
 
   return (
-    <div className="w-full">
+    <div className="w-full animate-fadeIn">
       {viewState === 'dashboard' ? (
         <CandidateDashboard
           candidates={candidates}
-          selectedCandidateId={selectedCandidate?.id || null}
+          selectedCandidateId={selectedCandidate?.id || selectedCandidate?.member?.id || null}
           onSelectCandidate={(cand) => setSelectedCandidate(cand)}
           onStartInterview={() => setViewState('interview')}
         />

@@ -4,7 +4,7 @@ import { agentEngine } from '@/lib/agent-engine';
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { candidate_id, message, session_id } = body;
+    const { candidate_id, message, session_id, persona } = body;
 
     if (!candidate_id) {
       return NextResponse.json(
@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
 
     // Initial session check if no message provided yet (first question load)
     if (!message || message.trim() === '') {
-      const { session, initialQuestion, reasoning } = await agentEngine.getOrStartSession(candidate_id, effectiveSessionId);
+      const { session, initialQuestion, reasoning } = await agentEngine.getOrStartSession(candidate_id, effectiveSessionId, persona);
       return NextResponse.json({
         next_question: initialQuestion,
         follow_up_reasoning: reasoning,
@@ -34,7 +34,8 @@ export async function POST(req: NextRequest) {
     const result = await agentEngine.processCandidateTurn({
       candidateId: candidate_id,
       sessionId: effectiveSessionId,
-      message
+      message,
+      persona
     });
 
     return NextResponse.json(result);

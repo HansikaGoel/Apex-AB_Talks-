@@ -60,7 +60,7 @@ export class InterviewAgentEngine {
   /**
    * Get or initialize an interview session for candidate
    */
-  async getOrStartSession(candidateId: string, customSessionId?: string): Promise<{ session: InterviewSession; initialQuestion: string; reasoning: string }> {
+  async getOrStartSession(candidateId: string, customSessionId?: string, persona: 'Encouraging Mentor' | 'Strict Tech Lead' = 'Strict Tech Lead'): Promise<{ session: InterviewSession; initialQuestion: string; reasoning: string }> {
     const sessionId = customSessionId || `session_${candidateId}_${Date.now()}`;
 
     if (activeSessions.has(sessionId)) {
@@ -83,7 +83,9 @@ export class InterviewAgentEngine {
       currentTurn: 1,
       coveredTopics: [initialDomain],
       recalledMemories: [],
-      targetDomain: initialDomain
+      targetDomain: initialDomain,
+      persona,
+      history: []
     });
 
     const firstTurn: InterviewTurn = {
@@ -101,6 +103,7 @@ export class InterviewAgentEngine {
       maxTurns: 8,
       status: 'in_progress',
       coveredTopics: [initialDomain],
+      persona,
       turns: [firstTurn]
     };
 
@@ -120,9 +123,10 @@ export class InterviewAgentEngine {
     candidateId: string;
     sessionId: string;
     message: string;
+    persona?: 'Encouraging Mentor' | 'Strict Tech Lead';
   }) {
-    const { candidateId, sessionId, message } = params;
-    const session = activeSessions.get(sessionId) || (await this.getOrStartSession(candidateId, sessionId)).session;
+    const { candidateId, sessionId, message, persona } = params;
+    const session = activeSessions.get(sessionId) || (await this.getOrStartSession(candidateId, sessionId, persona)).session;
     const candidates = this.getCandidates();
     const candidate = candidates.find(c => (c.id || c.member?.id) === candidateId) || candidates[0];
 
@@ -202,14 +206,22 @@ export class InterviewAgentEngine {
       session.coveredTopics.push(nextDomain);
     }
 
-    // 5. Generate next question and follow-up reasoning
+    const turnsHistory = session.turns.map(t => ({
+      question: t.question,
+      candidateAnswer: t.candidateAnswer,
+      domain: t.domain
+    }));
+
+    // 5. Generate next question and follow-up reasoning with transcript history
     const { question: nextQuestion, reasoning: nextReasoning } = await generateAdaptiveQuestion({
       candidate,
       currentTurn: nextTurnNumber,
       coveredTopics: session.coveredTopics,
       lastAnswer: message,
       recalledMemories,
-      targetDomain: nextDomain
+      targetDomain: nextDomain,
+      persona: persona || session.persona || 'Strict Tech Lead',
+      history: turnsHistory
     });
 
     session.currentTurn = nextTurnNumber;
