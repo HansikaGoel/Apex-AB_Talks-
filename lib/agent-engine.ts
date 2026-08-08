@@ -75,8 +75,22 @@ export class InterviewAgentEngine {
 
     const candidates = this.getCandidates();
     const candidate = candidates.find(c => (c.id || c.member?.id) === candidateId) || candidates[0];
-    const focusAreas = candidate.focus_areas || [];
-    const initialDomain = focusAreas[0] || 'Prompt Engineering';
+    const roleLower = (candidate.target_role || candidate.member?.jobRole || '').toLowerCase();
+
+    let initialDomain = 'Frontend Engineering & State';
+    if (roleLower.includes('frontend') || roleLower.includes('react') || roleLower.includes('ui')) {
+      initialDomain = 'Frontend Engineering & State';
+    } else if (roleLower.includes('ml') || roleLower.includes('machine learning') || roleLower.includes('ai') || roleLower.includes('model')) {
+      initialDomain = 'Machine Learning & Vector RAG';
+    } else if (roleLower.includes('devops') || roleLower.includes('cloud') || roleLower.includes('infra') || roleLower.includes('site reliability')) {
+      initialDomain = 'DevOps, Kubernetes & Cloud';
+    } else if (roleLower.includes('backend') || roleLower.includes('systems') || roleLower.includes('database')) {
+      initialDomain = 'Backend Systems & Databases';
+    } else if (roleLower.includes('agent') || roleLower.includes('full-stack')) {
+      initialDomain = 'Agentic AI & Tool Execution';
+    } else if (candidate.focus_areas && candidate.focus_areas.length > 0) {
+      initialDomain = candidate.focus_areas[0];
+    }
 
     const { question, reasoning } = await generateAdaptiveQuestion({
       candidate,

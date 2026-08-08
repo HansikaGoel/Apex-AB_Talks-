@@ -19,6 +19,7 @@ import {
   Volume2,
   VolumeX,
   AlertTriangle,
+  Play,
   CheckCircle2,
   Sliders,
   Radio,
@@ -48,6 +49,7 @@ export const LiveInterviewRoom: React.FC<LiveInterviewRoomProps> = ({
   const candidateAvatar = candidate?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80';
   const candidateRole = candidate?.target_role || candidate?.member?.jobRole || 'AI Engineer';
 
+  const [hasStarted, setHasStarted] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState('');
   const [loading, setLoading] = useState(false);
@@ -64,7 +66,7 @@ export const LiveInterviewRoom: React.FC<LiveInterviewRoomProps> = ({
   // Hackathon Controls State: Persona & Speech Speed
   const [persona, setPersona] = useState<'Strict Tech Lead' | 'Encouraging Mentor'>('Strict Tech Lead');
   const [voiceSpeed, setVoiceSpeed] = useState<number>(1.0);
-  const [speechEnabled, setSpeechEnabled] = useState<boolean>(false);
+  const [speechEnabled, setSpeechEnabled] = useState<boolean>(true);
 
   // Audio / Mic State
   const [isRecording, setIsRecording] = useState(false);
@@ -73,98 +75,95 @@ export const LiveInterviewRoom: React.FC<LiveInterviewRoomProps> = ({
 
   const chatBottomRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
+  const isRecordingRef = useRef<boolean>(false);
+
+  // Sync ref
+  useEffect(() => {
+    isRecordingRef.current = isRecording;
+  }, [isRecording]);
+
+  // Pre-load Web Speech Synthesis voices
+  useEffect(() => {
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      window.speechSynthesis.getVoices();
+      window.speechSynthesis.onvoiceschanged = () => {
+        window.speechSynthesis.getVoices();
+      };
+    }
+  }, []);
 
   // Auto-scroll chat to bottom
   useEffect(() => {
     chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, loading]);
 
-  // Initial load of first question
-  useEffect(() => {
-    async function loadFirstQuestion() {
-      setLoading(true);
-      try {
-        const res = await fetch('/api/interview', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            candidate_id: candidateId,
-            session_id: sessionId,
-            message: '',
-            persona
-          })
-        });
-        const data = await res.json();
-        const firstMsg = data.next_question || 'Welcome to the technical evaluation.';
-        setMessages([
-          {
-            id: `msg_${Date.now()}`,
-            sender: 'agent',
-            text: firstMsg,
-            reasoning: data.follow_up_reasoning,
-            timestamp: new Date().toLocaleTimeString(),
-            domain: data.covered_topics?.[0] || 'Prompt Engineering'
-          }
-        ]);
-        setLatestReasoning(data.follow_up_reasoning || '');
-        if (data.covered_topics) setCoveredTopics(data.covered_topics);
-
-        if (speechEnabled) speakText(firstMsg);
-      } catch (err) {
-        console.error('Failed to load initial interview question:', err);
-      } finally {
-        setLoading(false);
-      }
-    }
-    loadFirstQuestion();
-  }, [candidateId, sessionId, persona]);
-
-  // Text-to-Speech Synthesis for Agent Responses
+  // Robust Text-to-Speech (TTS) Function Implementation
   const speakText = (text: string) => {
     if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+    
+    // Cancel any ongoing or pending speech
     window.speechSynthesis.cancel();
+
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.rate = voiceSpeed;
-    utterance.pitch = persona === 'Strict Tech Lead' ? 0.9 : 1.1;
+    utterance.pitch = persona === 'Strict Tech Lead' ? 0.95 : 1.05;
+    
+    // Pick an English voice if available
+    const voices = window.speechSynthesis.getVoices();
+    const preferredVoice = voices.find(v => v.lang.startsWith('en') || v.lang.includes('US') || v.lang.includes('GB')) || voices[0];
+    if (preferredVoice) utterance.voice = preferredVoice;
+
     window.speechSynthesis.speak(utterance);
   };
 
-  // Microphone Permission Request & Recording Toggle
-  const toggleRecording = async () => {
-    if (isRecording) {
-      if (recognitionRef.current) {
-        try { recognitionRef.current.stop(); } catch (e) {}
-      }
-      if (micStream) {
-        micStream.getTracks().forEach(t => t.stop());
-        setMicStream(null);
-      }
-      setIsRecording(false);
-      return;
-    }
-
+  // Microphone Audio Capture Handler (User-Gesture Triggered)
+  const startAudioCapture = async () => {
+    if (isRecordingRef.current) return;
     setMicError(null);
 
     try {
-      // 1. Request real mic permissions
+      // 1. Direct user-gesture mic permission request
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       setMicStream(stream);
       setIsRecording(true);
+      isRecordingRef.current = true;
 
-      // 2. Web Speech Recognition setup if supported
+      // 2. Web Speech Recognition setup
       const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
       if (SpeechRecognition) {
+        if (recognitionRef.current) {
+          try { recognitionRef.current.stop(); } catch (e) {}
+        }
         const recognition = new SpeechRecognition();
         recognition.continuous = true;
         recognition.interimResults = true;
+        recognition.maxAlternatives = 1;
         recognition.lang = 'en-US';
 
+        // Real-time transcript accumulator pattern
         recognition.onresult = (event: any) => {
-          let transcript = '';
-          for (let i = event.resultIndex; i < event.results.length; i++) {
-            transcript += event.results[i][0].transcript;
+          let interimTranscript = '';
+          let finalTranscript = '';
+
+          for (let i = event.resultIndex; i < event.results.length; ++i) {
+            if (event.results[i].isFinal) {
+              finalTranscript += event.results[i][0].transcript + ' ';
+            } else {
+              interimTranscript += event.results[i][0].transcript;
+            }
           }
-          if (transcript) setInputText(transcript);
+
+          setInputText((prev) => {
+            const combined = (finalTranscript + interimTranscript).trim();
+            return combined.length > 0 ? combined : prev;
+          });
+        };
+
+        recognition.onend = () => {
+          // Keep mic active on end while interview is active (prevents timeout on natural pauses)
+          if (isRecordingRef.current) {
+            try { recognition.start(); } catch (e) {}
+          }
         };
 
         recognition.onerror = (e: any) => {
@@ -183,12 +182,90 @@ export const LiveInterviewRoom: React.FC<LiveInterviewRoomProps> = ({
         const randomTranscript = sampleVoiceTranscripts[Math.floor(Math.random() * sampleVoiceTranscripts.length)];
         setTimeout(() => {
           setInputText(randomTranscript);
-        }, 2000);
+        }, 1500);
       }
     } catch (err: any) {
-      console.warn('Microphone permission request denied or unavailable:', err);
-      setMicError('Microphone access was denied or is unavailable. You can type your technical responses below.');
+      console.warn('Microphone permission notice:', err);
+      setMicError('Microphone access was denied or is blocked by browser media settings. You can type technical responses below.');
       setIsRecording(false);
+      isRecordingRef.current = false;
+    }
+  };
+
+  const stopAudioCapture = () => {
+    isRecordingRef.current = false;
+    setIsRecording(false);
+    if (recognitionRef.current) {
+      try { recognitionRef.current.stop(); } catch (e) {}
+      recognitionRef.current = null;
+    }
+    if (micStream) {
+      micStream.getTracks().forEach(t => t.stop());
+      setMicStream(null);
+    }
+  };
+
+  const toggleRecording = () => {
+    if (isRecording) {
+      stopAudioCapture();
+    } else {
+      startAudioCapture();
+    }
+  };
+
+  // Initial load of first question
+  useEffect(() => {
+    async function loadFirstQuestion() {
+      setLoading(true);
+      try {
+        const res = await fetch('/api/interview', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            candidate_id: candidateId,
+            session_id: sessionId,
+            message: '',
+            persona
+          })
+        });
+        const data = await res.json();
+        const firstMsg = data.next_question || `Welcome ${candidateName}. Let us begin evaluating your track.`;
+        setMessages([
+          {
+            id: `msg_${Date.now()}`,
+            sender: 'agent',
+            text: firstMsg,
+            reasoning: data.follow_up_reasoning,
+            timestamp: new Date().toLocaleTimeString(),
+            domain: data.covered_topics?.[0] || 'Prompt Engineering & Security'
+          }
+        ]);
+        setLatestReasoning(data.follow_up_reasoning || '');
+        if (data.covered_topics) setCoveredTopics(data.covered_topics);
+      } catch (err) {
+        console.error('Failed to load initial interview question:', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadFirstQuestion();
+  }, [candidateId, sessionId, persona]);
+
+  // Handle explicit user gesture click to launch room, enable mic & speak opening question out loud
+  const handleLaunchInterviewAndEnableMic = async () => {
+    setHasStarted(true);
+    setSpeechEnabled(true);
+
+    // Unlock speechSynthesis context on direct click gesture
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
+
+    await startAudioCapture();
+
+    // Immediately speak the opening question out loud
+    if (messages.length > 0 && messages[0]?.text) {
+      speakText(messages[0].text);
     }
   };
 
@@ -196,17 +273,6 @@ export const LiveInterviewRoom: React.FC<LiveInterviewRoomProps> = ({
   const handleSendMessage = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!inputText.trim() || loading || isCompleted) return;
-
-    if (isRecording) {
-      if (recognitionRef.current) {
-        try { recognitionRef.current.stop(); } catch (e) {}
-      }
-      if (micStream) {
-        micStream.getTracks().forEach(t => t.stop());
-        setMicStream(null);
-      }
-      setIsRecording(false);
-    }
 
     const userText = inputText.trim();
     setInputText('');
@@ -257,9 +323,48 @@ export const LiveInterviewRoom: React.FC<LiveInterviewRoomProps> = ({
 
       if (speechEnabled) speakText(agentResponse);
 
-      if (data.interview_status === 'completed' || data.feedback) {
+      if (data.interview_status === 'completed' || data.feedback || data.done) {
         setIsCompleted(true);
         setFeedback(data.feedback);
+        stopAudioCapture();
+
+        // Save session history for Candidate Analytics Dashboard (/dashboard)
+        if (typeof window !== 'undefined') {
+          try {
+            const existingHistoryStr = localStorage.getItem('interview_history') || '[]';
+            const existingHistory = JSON.parse(existingHistoryStr);
+            const newRecord = {
+              id: sessionId,
+              date: new Date().toLocaleDateString(),
+              candidateName,
+              candidateRole,
+              scores: data.feedback?.scores || {
+                technical_accuracy: 90,
+                communication: 88,
+                problem_solving: 85,
+                confidence: 92
+              },
+              hiring_recommendation: data.feedback?.hiring_recommendation || 'Hire',
+              strengths: data.feedback?.strengths || [],
+              weaknesses: data.feedback?.gaps || data.feedback?.weaknesses || [],
+              summary: data.feedback?.summary || 'Candidate demonstrated solid proficiency across cohort modules.'
+            };
+            localStorage.setItem('interview_history', JSON.stringify([newRecord, ...existingHistory]));
+          } catch (e) {
+            console.warn('Failed to save session history to localStorage:', e);
+          }
+        }
+      } else {
+        // Clean turn transition reset: clear input state and restart speech recognition for Turn 2, 3, etc.
+        setInputText('');
+        if (recognitionRef.current) {
+          try { recognitionRef.current.stop(); } catch (e) {}
+        }
+        if (isRecordingRef.current) {
+          setTimeout(() => {
+            startAudioCapture();
+          }, 300);
+        }
       }
     } catch (err) {
       console.error('Failed to process interview turn:', err);
@@ -269,12 +374,38 @@ export const LiveInterviewRoom: React.FC<LiveInterviewRoomProps> = ({
   };
 
   return (
-    <div className="w-full max-w-6xl mx-auto flex flex-col h-[calc(100vh-6rem)] animate-fadeIn space-y-4">
+    <div className="relative w-full max-w-6xl mx-auto flex flex-col h-[calc(100vh-6rem)] animate-fadeIn space-y-4">
+      {/* Entry Modal Overlay for User-Gesture Mic Activation & Speech Unlock */}
+      {!hasStarted && (
+        <div className="absolute inset-0 z-40 bg-black/85 backdrop-blur-md rounded-2xl flex flex-col items-center justify-center p-6 text-center space-y-6 animate-fadeIn">
+          <div className="w-16 h-16 rounded-full bg-teal-950 border-2 border-teal-500 flex items-center justify-center text-teal-400 shadow-xl shadow-teal-500/20">
+            <Mic className="w-8 h-8 animate-pulse" />
+          </div>
+          <div className="space-y-2 max-w-md">
+            <h3 className="text-2xl font-extrabold text-slate-100">Ready for Technical Evaluation?</h3>
+            <p className="text-xs text-slate-400 leading-relaxed">
+              Target Candidate: <span className="font-semibold text-slate-200">{candidateName}</span> ({candidateRole}).
+              Click below to unlock AI voice playback, grant microphone access, and launch the real-time session.
+            </p>
+          </div>
+          <button
+            onClick={handleLaunchInterviewAndEnableMic}
+            className="flex items-center gap-3 px-8 py-4 rounded-2xl bg-gradient-to-r from-teal-500 to-emerald-400 text-slate-950 font-extrabold text-sm shadow-xl shadow-teal-500/30 hover:scale-105 transition-all cursor-pointer"
+          >
+            <Play className="w-5 h-5 fill-slate-950" />
+            <span>Begin Interview & Enable Microphone</span>
+          </button>
+        </div>
+      )}
+
       {/* Top Header Card */}
       <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 flex flex-col md:flex-row items-center justify-between gap-4 shadow-xl">
         <div className="flex items-center gap-4 w-full md:w-auto">
           <button
-            onClick={onBackToDashboard}
+            onClick={() => {
+              stopAudioCapture();
+              onBackToDashboard();
+            }}
             className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors cursor-pointer"
             title="Back to Candidate Dashboard"
           >
@@ -369,7 +500,7 @@ export const LiveInterviewRoom: React.FC<LiveInterviewRoomProps> = ({
             <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
             <span>{micError}</span>
           </div>
-          <button onClick={() => setMicError(null)} className="text-rose-400 hover:text-rose-200 font-bold">
+          <button onClick={() => setMicError(null)} className="text-rose-400 hover:text-rose-200 font-bold cursor-pointer">
             Dismiss
           </button>
         </div>
@@ -477,7 +608,7 @@ export const LiveInterviewRoom: React.FC<LiveInterviewRoomProps> = ({
                 ? 'bg-rose-500/20 text-rose-400 border border-rose-500 animate-pulse'
                 : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700'
             }`}
-            title={isRecording ? 'Stop Recording' : 'Start Audio Microphone Recording'}
+            title={isRecording ? 'Stop Voice Recording' : 'Start Audio Microphone Recording'}
           >
             {isRecording ? <Radio className="w-5 h-5 text-rose-400" /> : <Mic className="w-5 h-5" />}
           </button>
@@ -489,7 +620,7 @@ export const LiveInterviewRoom: React.FC<LiveInterviewRoomProps> = ({
             disabled={loading || isCompleted}
             placeholder={
               isRecording
-                ? 'Listening to candidate voice input...'
+                ? 'Listening to candidate voice input in real time...'
                 : isCompleted
                 ? 'Interview completed. View Feedback Report.'
                 : 'Type detailed technical response or use voice input...'
@@ -522,7 +653,10 @@ export const LiveInterviewRoom: React.FC<LiveInterviewRoomProps> = ({
         isOpen={isCompleted}
         candidate={candidate}
         feedback={feedback}
-        onRestart={onBackToDashboard}
+        onRestart={() => {
+          stopAudioCapture();
+          onBackToDashboard();
+        }}
       />
     </div>
   );

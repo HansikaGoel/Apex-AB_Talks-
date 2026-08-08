@@ -1,8 +1,9 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
 import { Candidate } from '@/lib/types';
-import { UserCheck, Award, AlertCircle, ChevronRight, Sparkles, BookOpen, Layers } from 'lucide-react';
+import { UserCheck, Award, AlertCircle, ChevronRight, Sparkles, BookOpen, Layers, BarChart3 } from 'lucide-react';
 
 interface CandidateDashboardProps {
   candidates: Candidate[] | { candidates: Candidate[] } | any;
@@ -45,13 +46,22 @@ export const CandidateDashboard: React.FC<CandidateDashboardProps> = ({
           </div>
 
           {activeCandidate && (
-            <button
-              onClick={onStartInterview}
-              className="flex items-center gap-3 px-6 py-3.5 rounded-xl bg-gradient-to-r from-teal-500 to-emerald-600 hover:from-teal-400 hover:to-emerald-500 text-slate-950 font-bold shadow-lg shadow-teal-500/20 hover:shadow-teal-500/40 transition-all duration-200 cursor-pointer text-sm whitespace-nowrap"
-            >
-              <span>Launch Interview for {activeCandidate.name?.split(' ')[0] || 'Candidate'}</span>
-              <ChevronRight className="w-5 h-5" />
-            </button>
+            <div className="flex flex-col sm:flex-row items-center gap-3">
+              <Link
+                href="/dashboard"
+                className="flex items-center gap-2 px-5 py-3.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-teal-300 font-semibold border border-slate-700 transition-all text-xs whitespace-nowrap cursor-pointer"
+              >
+                <BarChart3 className="w-4 h-4 text-teal-400" />
+                <span>Analytics Dashboard</span>
+              </Link>
+              <button
+                onClick={onStartInterview}
+                className="flex items-center gap-3 px-6 py-3.5 rounded-xl bg-gradient-to-r from-teal-500 to-emerald-600 hover:from-teal-400 hover:to-emerald-500 text-slate-950 font-bold shadow-lg shadow-teal-500/20 hover:shadow-teal-500/40 transition-all duration-200 cursor-pointer text-sm whitespace-nowrap"
+              >
+                <span>Launch Evaluation</span>
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
           )}
         </div>
       </div>
