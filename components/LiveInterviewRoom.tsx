@@ -40,15 +40,17 @@ interface ChatMessage {
 interface LiveInterviewRoomProps {
   candidate: Candidate;
   onBackToDashboard: () => void;
+  onNavigateToConfig?: () => void;
 }
 
 export const LiveInterviewRoom: React.FC<LiveInterviewRoomProps> = ({
   candidate,
   onBackToDashboard,
+  onNavigateToConfig,
 }) => {
   const candidateId = candidate?.id || candidate?.member?.id || 'CAND-001';
   const candidateName = candidate?.name || candidate?.member?.name || 'Candidate';
-  const candidateAvatar = candidate?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80';
+  const candidateAvatar = candidate?.avatar || candidate?.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80';
   const candidateRole = candidate?.target_role || candidate?.member?.jobRole || 'AI Engineer';
 
   const [hasStarted, setHasStarted] = useState(false);
@@ -65,12 +67,12 @@ export const LiveInterviewRoom: React.FC<LiveInterviewRoomProps> = ({
   const [isCompleted, setIsCompleted] = useState(false);
   const [sessionId] = useState(`session_${candidateId}_${Date.now()}`);
 
-  // Hackathon Controls State: Persona & Speech Speed
+  // Controls State
   const [persona, setPersona] = useState<'Strict Tech Lead' | 'Encouraging Mentor'>('Strict Tech Lead');
   const [voiceSpeed, setVoiceSpeed] = useState<number>(1.0);
   const [speechEnabled, setSpeechEnabled] = useState<boolean>(true);
 
-  // 5-Minute Per-Question Countdown Timer State (300 seconds)
+  // 5-Minute Timer State
   const [timeLeft, setTimeLeft] = useState<number>(300);
 
   // Audio / Mic State
@@ -100,14 +102,13 @@ export const LiveInterviewRoom: React.FC<LiveInterviewRoomProps> = ({
     }
   }, []);
 
-  // Format seconds into MM:SS
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // 5-Minute Countdown Timer Hook with Auto-Advance Capability
+  // 5-Minute Timer Hook
   useEffect(() => {
     if (!hasStarted || loading || isCompleted) return;
 
@@ -115,7 +116,6 @@ export const LiveInterviewRoom: React.FC<LiveInterviewRoomProps> = ({
       setTimeLeft((prev) => {
         if (prev <= 1) {
           clearInterval(timer);
-          // Auto-advance turn when 5-minute timer expires
           setTimeout(() => {
             handleTimeExpired();
           }, 0);
@@ -136,52 +136,144 @@ export const LiveInterviewRoom: React.FC<LiveInterviewRoomProps> = ({
     setTimeLeft(300);
   };
 
-  // Auto-scroll chat to bottom
   useEffect(() => {
     chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, loading]);
 
-  // Automated Re-initialization Effect on Question / Turn Step Change
-  useEffect(() => {
-    if (!hasStarted || isCompleted) return;
-
-    // Clear candidate input for new question turn
-    setInputText('');
-
-    // If candidate enabled microphone, re-initialize recognition for Question 2+
-    if (isMicEnabledRef.current && !loading && !isAISpeakingRef.current) {
-      const restartMic = async () => {
-        try {
-          if (recognitionRef.current) {
-            try { recognitionRef.current.stop(); } catch (e) {}
-          }
-          await startAudioCapture();
-        } catch (err) {
-          console.error("Failed to re-initialize microphone on turn change:", err);
-        }
-      };
-
-      const timer = setTimeout(() => {
-        restartMic();
-      }, 500);
-
-      return () => clearTimeout(timer);
+  // --- STRICT AUDIO TEARDOWN ---
+  const purgeAudioStack = () => {
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
     }
-  }, [currentStep]);
 
-  // Robust Text-to-Speech (TTS) Function Implementation
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.onresult = null;
+        recognitionRef.current.onerror = null;
+        recognitionRef.current.onend = null;
+        recognitionRef.current.stop();
+        recognitionRef.current.abort();
+      } catch (e) {}
+      recognitionRef.current = null;
+    }
+
+    if (micStream) {
+      micStream.getTracks().forEach(t => t.stop());
+      setMicStream(null);
+    }
+
+    isAISpeakingRef.current = false;
+    isMicEnabledRef.current = false;
+    isRecordingRef.current = false;
+    setIsAISpeaking(false);
+    setIsRecording(false);
+  };
+
+  useEffect(() => {
+    return () => purgeAudioStack();
+  }, []);
+
+  // --- INTERVIEWEE MIC START ---
+  const startAudioCapture = async () => {
+    if (isAISpeakingRef.current) return;
+
+    setMicError(null);
+    try {
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia && !micStream) {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        setMicStream(stream);
+      }
+
+      const SpeechRecognition = typeof window !== 'undefined' &&
+        ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition);
+
+      if (SpeechRecognition) {
+        // Stop any old instance before creating a new one
+        if (recognitionRef.current) {
+          try {
+            recognitionRef.current.onresult = null;
+            recognitionRef.current.onerror = null;
+            recognitionRef.current.onend = null;
+            recognitionRef.current.stop();
+            recognitionRef.current.abort();
+          } catch (e) {}
+          recognitionRef.current = null;
+        }
+
+        const recognition = new SpeechRecognition();
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        recognition.lang = 'en-US';
+
+        recognition.onstart = () => {
+          setIsRecording(true);
+          isRecordingRef.current = true;
+          isMicEnabledRef.current = true;
+        };
+
+        recognition.onresult = (event: any) => {
+          let currentTranscript = '';
+          for (let i = event.resultIndex; i < event.results.length; i++) {
+            currentTranscript += event.results[i][0].transcript;
+          }
+          if (currentTranscript.trim()) {
+            setInputText(currentTranscript.trim());
+          }
+        };
+
+        recognition.onerror = (event: any) => {
+          if (event.error === 'not-allowed') {
+            setMicError('Microphone access denied. Please enable mic permissions.');
+            setIsRecording(false);
+            isMicEnabledRef.current = false;
+          } else if (event.error === 'no-speech') {
+            if (!isAISpeakingRef.current && isMicEnabledRef.current && !loading && !isCompleted) {
+              setTimeout(() => {
+                try { recognition.start(); } catch (e) {}
+              }, 300);
+            }
+          }
+        };
+
+        recognition.onend = () => {
+          if (isMicEnabledRef.current && !isAISpeakingRef.current && !loading && !isCompleted) {
+            try { recognition.start(); } catch (e) {}
+          } else {
+            setIsRecording(false);
+          }
+        };
+
+        recognitionRef.current = recognition;
+        recognition.start();
+        isMicEnabledRef.current = true;
+      }
+    } catch (err: any) {
+      setMicError('Microphone access was denied or unavailable.');
+      setIsRecording(false);
+      isMicEnabledRef.current = false;
+    }
+  };
+
+  // --- INTERVIEWER SPEECH (TTS) WITH 500MS HARDWARE RELEASE BUFFER ---
   const speakText = (text: string, onComplete?: () => void) => {
     if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
       if (onComplete) onComplete();
       return;
     }
-    
-    // 1. Pause microphone to prevent hearing TTS output
-    if (recognitionRef.current) {
-      try { recognitionRef.current.stop(); } catch (e) {}
-    }
 
-    // 2. Cancel any ongoing or pending speech
+    // Lock interviewee mic while interviewer speaks
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.onresult = null;
+        recognitionRef.current.onerror = null;
+        recognitionRef.current.onend = null;
+        recognitionRef.current.stop();
+        recognitionRef.current.abort();
+      } catch (e) {}
+      recognitionRef.current = null;
+    }
+    setIsRecording(false);
+
     window.speechSynthesis.cancel();
 
     const utterance = new SpeechSynthesisUtterance(text);
@@ -197,172 +289,34 @@ export const LiveInterviewRoom: React.FC<LiveInterviewRoomProps> = ({
       isAISpeakingRef.current = false;
       setIsAISpeaking(false);
 
-      // 3. Automatically resume Candidate Mic 500ms AFTER AI finishes speaking
+      // Essential: 500ms hardware release buffer before starting Candidate Mic
       if (isMicEnabledRef.current && !loading && !isCompleted) {
         setTimeout(() => {
-          startAudioCapture();
+          if (!isAISpeakingRef.current) {
+            startAudioCapture();
+          }
         }, 500);
       }
 
       if (onComplete) onComplete();
     };
-    
-    // Pick an English voice if available
+
     const voices = window.speechSynthesis.getVoices();
-    const preferredVoice = voices.find(v => v.lang.startsWith('en') || v.lang.includes('US') || v.lang.includes('GB')) || voices[0];
+    const preferredVoice = voices.find(v => v.lang.startsWith('en') || v.lang.includes('US')) || voices[0];
     if (preferredVoice) utterance.voice = preferredVoice;
 
     window.speechSynthesis.speak(utterance);
   };
 
-  // Real-Time Speech Input Streaming Setup
-  const startAudioCapture = async () => {
-    if (isAISpeakingRef.current) return; // Block mic while AI speaks
-
-    setMicError(null);
-    try {
-      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        setMicStream(stream);
-      }
-
-      const SpeechRecognition = typeof window !== 'undefined' &&
-        ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition);
-
-      if (SpeechRecognition) {
-        if (recognitionRef.current) {
-          try { recognitionRef.current.stop(); } catch (e) {}
-        }
-
-        const recognition = new SpeechRecognition();
-        recognition.continuous = true;
-        recognition.interimResults = true;
-        recognition.lang = 'en-US';
-
-        recognition.onstart = () => {
-          setIsRecording(true);
-          isRecordingRef.current = true;
-          isMicEnabledRef.current = true;
-        };
-
-        // Live speech result accumulator pattern: handles final + interim speech streaming
-        recognition.onresult = (event: any) => {
-          let currentTranscript = '';
-          for (let i = event.resultIndex; i < event.results.length; i++) {
-            currentTranscript += event.results[i][0].transcript;
-          }
-          if (currentTranscript.trim()) {
-            setInputText(currentTranscript.trim());
-          }
-        };
-
-        recognition.onerror = (event: any) => {
-          console.warn('Speech recognition notice:', event.error);
-          if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
-            setMicError('Microphone permission was denied. Please check your browser microphone settings.');
-            setIsRecording(false);
-            isRecordingRef.current = false;
-            isMicEnabledRef.current = false;
-          } else if (event.error === 'no-speech') {
-            if (!isAISpeakingRef.current && isMicEnabledRef.current && !loading && !isCompleted) {
-              setTimeout(() => {
-                try { recognition.start(); } catch (e) {}
-              }, 300);
-            }
-          }
-        };
-
-        recognition.onend = () => {
-          if (isMicEnabledRef.current && !isAISpeakingRef.current && !loading && !isCompleted) {
-            try {
-              recognition.start();
-            } catch (err) {
-              console.warn('Could not auto-restart speech recognition:', err);
-            }
-          } else {
-            setIsRecording(false);
-          }
-        };
-
-        recognitionRef.current = recognition;
-        recognition.start();
-        isMicEnabledRef.current = true;
-      } else {
-        // Fallback simulation if SpeechRecognition Web API is unsupported
-        setIsRecording(true);
-        isRecordingRef.current = true;
-        isMicEnabledRef.current = true;
-        const sampleVoiceTranscripts = [
-          "I prioritize dense vector search using HNSW indexing with m=16 and ef_construction=200 for low latency QPS.",
-          "For prompt engineering, I implement strict CoT schemas and wrap user inputs in xml delimiters to block prompt injection.",
-          "Model Context Protocol (MCP) standardizes host-to-tool JSON-RPC transport over SSE or Stdio, decoupling client integration logic."
-        ];
-        const randomTranscript = sampleVoiceTranscripts[Math.floor(Math.random() * sampleVoiceTranscripts.length)];
-        setTimeout(() => {
-          setInputText(randomTranscript);
-        }, 1500);
-      }
-    } catch (err: any) {
-      console.warn('Microphone permission notice:', err);
-      setMicError('Microphone access was denied or is blocked by browser media settings. You can type technical responses below.');
-      setIsRecording(false);
-      isRecordingRef.current = false;
-      isMicEnabledRef.current = false;
-    }
-  };
-
-  // Comprehensive Audio Reset & Stack Tear-Down Routine
-  const purgeAudioStack = () => {
-    // 1. Cancel SpeechSynthesis
-    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-    }
-
-    // 2. Abort SpeechRecognition & remove event listeners
-    if (recognitionRef.current) {
-      try {
-        recognitionRef.current.onresult = null;
-        recognitionRef.current.onerror = null;
-        recognitionRef.current.onend = null;
-        recognitionRef.current.abort();
-      } catch (e) {}
-      recognitionRef.current = null;
-    }
-
-    // 3. Stop active media stream tracks
-    if (micStream) {
-      micStream.getTracks().forEach(t => t.stop());
-      setMicStream(null);
-    }
-
-    // 4. Reset audio state flags
-    isAISpeakingRef.current = false;
-    isMicEnabledRef.current = false;
-    isRecordingRef.current = false;
-    setIsAISpeaking(false);
-    setIsRecording(false);
-  };
-
-  // Component unmount cleanup
-  useEffect(() => {
-    return () => {
-      purgeAudioStack();
-    };
-  }, []);
-
-  const stopAudioCapture = () => {
-    purgeAudioStack();
-  };
-
   const toggleRecording = () => {
     if (isRecording) {
-      stopAudioCapture();
+      purgeAudioStack();
     } else {
       startAudioCapture();
     }
   };
 
-  // Explicit End Interview Handler with Confirmation
+  // --- END INTERVIEW AND REDIRECT ---
   const handleEndInterview = async () => {
     if (typeof window !== 'undefined' && !window.confirm("Are you sure you want to end this technical evaluation session?")) {
       return;
@@ -377,7 +331,7 @@ export const LiveInterviewRoom: React.FC<LiveInterviewRoomProps> = ({
         body: JSON.stringify({
           candidate_id: candidateId,
           session_id: sessionId,
-          message: 'Candidate requested to conclude evaluation early.',
+          message: 'Candidate concluded evaluation.',
           done: true,
           persona
         })
@@ -393,7 +347,19 @@ export const LiveInterviewRoom: React.FC<LiveInterviewRoomProps> = ({
     }
   };
 
-  // Initial load of first question
+  // Handle modal close / restart redirect
+  const handleModalClose = () => {
+    purgeAudioStack();
+    if (onNavigateToConfig) {
+      onNavigateToConfig();
+    } else if (onBackToDashboard) {
+      onBackToDashboard();
+    } else {
+      window.location.href = '/?step=setup';
+    }
+  };
+
+  // Initial load
   useEffect(() => {
     async function loadFirstQuestion() {
       setLoading(true);
@@ -431,34 +397,42 @@ export const LiveInterviewRoom: React.FC<LiveInterviewRoomProps> = ({
     loadFirstQuestion();
   }, [candidateId, sessionId, persona]);
 
-  // Unblock Audio & Launch Interview on Direct Click Gesture
   const handleLaunchInterviewAndEnableMic = async () => {
     setHasStarted(true);
     setSpeechEnabled(true);
 
-    // Unlock speechSynthesis context on direct click gesture
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       window.speechSynthesis.cancel();
     }
 
-    await startAudioCapture();
-
-    // Immediately speak the opening question out loud
     if (messages.length > 0 && messages[0]?.text) {
       speakText(messages[0].text);
+    } else {
+      await startAudioCapture();
     }
   };
 
-  // Submit Candidate Answer
   const handleSendMessage = async (e?: React.FormEvent, textOverride?: string) => {
     if (e && typeof e !== 'string' && 'preventDefault' in e) e.preventDefault();
     const userText = (textOverride || inputText).trim();
     if (!userText || loading || isCompleted) return;
 
+    // Stop mic while awaiting agent response
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.onresult = null;
+        recognitionRef.current.onerror = null;
+        recognitionRef.current.onend = null;
+        recognitionRef.current.stop();
+        recognitionRef.current.abort();
+      } catch (err) {}
+      recognitionRef.current = null;
+    }
+    setIsRecording(false);
+
     setInputText('');
     setTimeLeft(300);
 
-    // Add candidate message to chat
     const userMsg: ChatMessage = {
       id: `msg_cand_${Date.now()}`,
       sender: 'candidate',
@@ -490,7 +464,6 @@ export const LiveInterviewRoom: React.FC<LiveInterviewRoomProps> = ({
 
       const agentResponse = data.next_question || 'Thank you for your response.';
 
-      // Add agent response message
       const agentMsg: ChatMessage = {
         id: `msg_agent_${Date.now()}`,
         sender: 'agent',
@@ -502,20 +475,24 @@ export const LiveInterviewRoom: React.FC<LiveInterviewRoomProps> = ({
 
       setMessages(prev => [...prev, agentMsg]);
 
-      if (speechEnabled) speakText(agentResponse);
+      if (speechEnabled) {
+        speakText(agentResponse);
+      } else {
+        setTimeout(() => startAudioCapture(), 500);
+      }
 
       if (data.interview_status === 'completed' || data.feedback || data.done) {
         setIsCompleted(true);
         setFeedback(data.feedback);
-        stopAudioCapture();
+        purgeAudioStack();
 
-        // Save session history for Candidate Analytics Dashboard (/dashboard)
         if (typeof window !== 'undefined') {
           try {
             const existingHistoryStr = localStorage.getItem('interview_history') || '[]';
             const existingHistory = JSON.parse(existingHistoryStr);
             const newRecord = {
               id: sessionId,
+              candidateId,
               date: new Date().toLocaleDateString(),
               candidateName,
               candidateRole,
@@ -535,17 +512,6 @@ export const LiveInterviewRoom: React.FC<LiveInterviewRoomProps> = ({
             console.warn('Failed to save session history to localStorage:', e);
           }
         }
-      } else {
-        // Clean turn transition reset: clear input state and restart speech recognition for Turn 2, 3, etc.
-        setInputText('');
-        if (recognitionRef.current) {
-          try { recognitionRef.current.stop(); } catch (e) {}
-        }
-        if (isRecordingRef.current) {
-          setTimeout(() => {
-            startAudioCapture();
-          }, 300);
-        }
       }
     } catch (err) {
       console.error('Failed to process interview turn:', err);
@@ -556,7 +522,6 @@ export const LiveInterviewRoom: React.FC<LiveInterviewRoomProps> = ({
 
   return (
     <div className="h-screen w-screen overflow-hidden flex flex-col justify-between p-3 sm:p-4 bg-slate-950 gap-3 text-slate-100 font-sans select-none">
-      {/* Entry Modal Overlay for User-Gesture Mic Activation & Speech Unlock */}
       {!hasStarted && (
         <div className="fixed inset-0 z-40 bg-black/85 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center space-y-6 animate-fadeIn">
           <div className="w-16 h-16 rounded-full bg-teal-950 border-2 border-teal-500 flex items-center justify-center text-teal-400 shadow-xl shadow-teal-500/20">
@@ -579,7 +544,7 @@ export const LiveInterviewRoom: React.FC<LiveInterviewRoomProps> = ({
         </div>
       )}
 
-      {/* Top Profile Header Card (Fixed Height ~20%) */}
+      {/* Top Header Card */}
       <div className="shrink-0 bg-slate-900/90 border border-slate-800 rounded-2xl p-3 py-2.5 flex flex-col md:flex-row items-center justify-between gap-3 shadow-xl">
         <div className="flex items-center gap-3 w-full md:w-auto">
           <button
@@ -608,9 +573,8 @@ export const LiveInterviewRoom: React.FC<LiveInterviewRoomProps> = ({
           </div>
         </div>
 
-        {/* Header Controls & Active Timer Badge */}
+        {/* Controls Row */}
         <div className="flex flex-wrap items-center gap-2.5 w-full md:w-auto justify-end text-xs">
-          {/* 5-Minute Per-Question Countdown Timer Badge */}
           <div className={`px-3 py-1 rounded-xl border flex items-center gap-1.5 font-mono text-xs font-bold transition-all shadow-sm ${
             timeLeft < 60
               ? 'bg-rose-950/80 text-rose-400 border-rose-800 animate-pulse'
@@ -620,7 +584,6 @@ export const LiveInterviewRoom: React.FC<LiveInterviewRoomProps> = ({
             <span>{formatTime(timeLeft)}</span>
           </div>
 
-          {/* Persona Selector */}
           <div className="flex items-center gap-1 bg-slate-950 border border-slate-800 rounded-xl p-1">
             <button
               onClick={() => setPersona('Strict Tech Lead')}
@@ -640,7 +603,6 @@ export const LiveInterviewRoom: React.FC<LiveInterviewRoomProps> = ({
             </button>
           </div>
 
-          {/* Voice Speed Toggle */}
           <div className="flex items-center gap-1 bg-slate-950 border border-slate-800 rounded-xl p-1 font-mono">
             {[0.9, 1.0, 1.25].map((speed) => (
               <button
@@ -655,7 +617,6 @@ export const LiveInterviewRoom: React.FC<LiveInterviewRoomProps> = ({
             ))}
           </div>
 
-          {/* Speech Synthesis Mute Toggle */}
           <button
             onClick={() => setSpeechEnabled(!speechEnabled)}
             className={`p-1.5 rounded-xl border transition-colors cursor-pointer ${
@@ -663,15 +624,13 @@ export const LiveInterviewRoom: React.FC<LiveInterviewRoomProps> = ({
                 ? 'bg-teal-950 text-teal-400 border-teal-800'
                 : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-slate-200'
             }`}
-            title={speechEnabled ? 'Disable Agent Speech Read-Aloud' : 'Enable Agent Speech Read-Aloud'}
           >
             {speechEnabled ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
           </button>
 
-          {/* Breeth AI Inspector Button */}
           <button
             onClick={() => setIsMemoryOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-teal-950 to-slate-900 hover:from-teal-900 border border-teal-700/50 text-teal-300 font-semibold shadow-lg transition-all cursor-pointer text-xs"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-teal-950 to-slate-900 border border-teal-700/50 text-teal-300 font-semibold shadow-lg transition-all cursor-pointer text-xs"
           >
             <Brain className="w-3.5 h-3.5 text-teal-400 animate-pulse" />
             <span>Breeth AI</span>
@@ -682,11 +641,9 @@ export const LiveInterviewRoom: React.FC<LiveInterviewRoomProps> = ({
             )}
           </button>
 
-          {/* Prominent End Interview Button */}
           <button
             onClick={handleEndInterview}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-950/80 hover:bg-rose-900 border border-rose-800 text-rose-300 font-bold shadow-lg transition-all cursor-pointer text-xs"
-            title="Conclude Interview & View Final Evaluation Report"
           >
             <Power className="w-3.5 h-3.5 text-rose-400" />
             <span>End Interview</span>
@@ -694,20 +651,18 @@ export const LiveInterviewRoom: React.FC<LiveInterviewRoomProps> = ({
         </div>
       </div>
 
-      {/* Permission Error Banner */}
       {micError && (
         <div className="shrink-0 bg-rose-950/60 border border-rose-800/80 rounded-xl p-2 px-3 text-xs text-rose-300 flex items-center justify-between gap-3 animate-fadeIn my-1">
           <div className="flex items-center gap-2">
             <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
             <span>{micError}</span>
           </div>
-          <button onClick={() => setMicError(null)} className="text-rose-400 hover:text-rose-200 font-bold cursor-pointer">
+          <button onClick={() => setMicError(null)} className="text-rose-400 font-bold cursor-pointer">
             Dismiss
           </button>
         </div>
       )}
 
-      {/* Progress Bar */}
       <div className="shrink-0 my-1">
         <TopicCoverageBar
           currentStep={currentStep}
@@ -716,7 +671,7 @@ export const LiveInterviewRoom: React.FC<LiveInterviewRoomProps> = ({
         />
       </div>
 
-      {/* Middle Question & Chat Timeline (Flex Growing Area - ONLY this section scrolls) */}
+      {/* Scrolling Chat Timeline */}
       <div className="flex-1 min-h-0 bg-slate-900/60 border border-slate-800 rounded-xl p-4 overflow-y-auto space-y-4 shadow-inner flex flex-col justify-between">
         {messages.map((msg) => (
           <div
@@ -725,7 +680,6 @@ export const LiveInterviewRoom: React.FC<LiveInterviewRoomProps> = ({
               msg.sender === 'candidate' ? 'ml-auto flex-row-reverse' : 'mr-auto'
             }`}
           >
-            {/* Avatar Icon */}
             <div
               className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 border ${
                 msg.sender === 'agent'
@@ -736,7 +690,6 @@ export const LiveInterviewRoom: React.FC<LiveInterviewRoomProps> = ({
               {msg.sender === 'agent' ? <Bot className="w-4 h-4" /> : <User className="w-4 h-4" />}
             </div>
 
-            {/* Bubble */}
             <div className="space-y-1.5">
               <div className="flex items-center gap-2 text-[11px] text-slate-500 px-1">
                 <span className="font-semibold text-slate-300">
@@ -761,7 +714,6 @@ export const LiveInterviewRoom: React.FC<LiveInterviewRoomProps> = ({
                 {msg.text}
               </div>
 
-              {/* Reasoning & Injected Memory Tag */}
               {msg.reasoning && (
                 <div className="text-[11px] text-slate-400 bg-slate-950/60 border border-slate-800/80 rounded-xl p-2.5 space-y-1">
                   <div className="flex items-center gap-2">
@@ -769,12 +721,6 @@ export const LiveInterviewRoom: React.FC<LiveInterviewRoomProps> = ({
                     <span className="text-teal-400 font-semibold">Agent Reasoning: </span>
                     <span className="italic">{msg.reasoning}</span>
                   </div>
-                  {recalledMemories.length > 0 && msg.sender === 'agent' && (
-                    <div className="flex items-center gap-1.5 text-[10px] text-emerald-400 pt-1 font-mono">
-                      <Brain className="w-3 h-3" />
-                      <span>Injected Breeth Memory Episode: "{recalledMemories[0].intent?.key_intent || recalledMemories[0].answer.slice(0, 40)}"</span>
-                    </div>
-                  )}
                 </div>
               )}
             </div>
@@ -791,9 +737,8 @@ export const LiveInterviewRoom: React.FC<LiveInterviewRoomProps> = ({
         <div ref={chatBottomRef} />
       </div>
 
-      {/* Fixed Bottom Answer Input Box & Audio Controls */}
+      {/* Answer Input Box */}
       <form onSubmit={handleSendMessage} className="shrink-0 bg-slate-900 border border-slate-800 rounded-2xl p-2.5 shadow-xl space-y-2">
-        {/* Audio Recording Active Visualizer Bar */}
         {isRecording && (
           <div className="flex items-center justify-between px-2 pb-1 border-b border-slate-800">
             <AudioVisualizer isRecording={isRecording} audioStream={micStream} />
@@ -802,7 +747,6 @@ export const LiveInterviewRoom: React.FC<LiveInterviewRoomProps> = ({
         )}
 
         <div className="flex items-center gap-2">
-          {/* Microphone Capture Button */}
           <button
             type="button"
             onClick={toggleRecording}
@@ -811,12 +755,10 @@ export const LiveInterviewRoom: React.FC<LiveInterviewRoomProps> = ({
                 ? 'bg-rose-500/20 text-rose-400 border border-rose-500 animate-pulse'
                 : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700'
             }`}
-            title={isRecording ? 'Stop Voice Recording' : 'Start Audio Microphone Recording'}
           >
             {isRecording ? <Radio className="w-4 h-4 text-rose-400" /> : <Mic className="w-4 h-4" />}
           </button>
 
-          {/* Text Input Area */}
           <input
             type="text"
             value={inputText}
@@ -826,7 +768,6 @@ export const LiveInterviewRoom: React.FC<LiveInterviewRoomProps> = ({
             className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs sm:text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-teal-500 transition-colors disabled:opacity-50"
           />
 
-          {/* Submit Button */}
           <button
             type="submit"
             disabled={!inputText.trim() || loading || isCompleted}
@@ -838,7 +779,6 @@ export const LiveInterviewRoom: React.FC<LiveInterviewRoomProps> = ({
         </div>
       </form>
 
-      {/* Memory Drawer Side Panel */}
       <MemoryDrawer
         isOpen={isMemoryOpen}
         onClose={() => setIsMemoryOpen(false)}
@@ -846,13 +786,12 @@ export const LiveInterviewRoom: React.FC<LiveInterviewRoomProps> = ({
         candidateName={candidateName}
       />
 
-      {/* Final Evaluation Report Modal */}
       {isCompleted && feedback && (
         <FeedbackModal
           isOpen={isCompleted}
           candidate={candidate}
           feedback={feedback}
-          onRestart={onBackToDashboard}
+          onRestart={handleModalClose}
         />
       )}
     </div>
