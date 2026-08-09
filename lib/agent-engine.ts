@@ -7,6 +7,24 @@ import { generateAdaptiveQuestion, generateEvaluationReport } from './gemini';
 // In-memory active interview sessions store
 const activeSessions: Map<string, InterviewSession> = new Map();
 
+const UNIQUE_CANDIDATE_AVATARS: Record<string, string> = {
+  "Sarah Johnson": "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80",
+  "Alex Turner": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80",
+  "Emily Chen": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
+  "David Miller": "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=80",
+  "Michael Brown": "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80",
+  "Wendy Foster": "https://images.unsplash.com/photo-1580489944761-15a19d654956?w=150&auto=format&fit=crop&q=80",
+  "Ethan Brooks": "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=150&auto=format&fit=crop&q=80",
+  "Harold Whitfield": "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&auto=format&fit=crop&q=80",
+  "Zara Ahmadi": "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=150&auto=format&fit=crop&q=80",
+  "Gerald Combs": "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=150&auto=format&fit=crop&q=80",
+  "Mia Alvarez": "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=150&auto=format&fit=crop&q=80",
+  "Chen Wei": "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=150&auto=format&fit=crop&q=80",
+  "Ravi Patel": "https://images.unsplash.com/photo-1501196354995-cbb51c65aaea?w=150&auto=format&fit=crop&q=80",
+  "Bethany Cole": "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&auto=format&fit=crop&q=80",
+  "Noah Kim": "https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?w=150&auto=format&fit=crop&q=80"
+};
+
 export class InterviewAgentEngine {
   /**
    * Fetch synthetic candidates list
@@ -14,8 +32,9 @@ export class InterviewAgentEngine {
   getCandidates(): Candidate[] {
     const raw = candidatesData as any;
     const rawList: any[] = Array.isArray(raw) ? raw : raw?.candidates || [];
-    return rawList.map(c => {
-      const id = c.id || c.member?.id || 'CAND-001';
+
+    return rawList.map((c, index) => {
+      const id = c.id || c.member?.id || `CAND-${index + 1}`;
       const name = c.name || c.member?.name || 'Candidate';
       const target_role = c.target_role || c.member?.jobRole || 'AI Engineer';
       const completed_days = c.completed_days || (c.missions ? c.missions.filter((m: any) => m.passed).map((m: any) => m.day) : []);
@@ -24,7 +43,7 @@ export class InterviewAgentEngine {
       const focus_areas = c.focus_areas || (c.missions ? c.missions.filter((m: any) => m.skipped || (m.attempts || 1) > 2).map((m: any) => m.title).slice(0, 3) : ['Model Context Protocol (MCP)']);
       const cohort_grade = c.cohort_grade || (c.signals?.missionsCompleted > 28 ? 'A+' : 'B+');
       const bio = c.bio || `${name} is a ${target_role} with ${c.member?.yearsExperience || 5} years experience (${c.member?.education || 'CS Degree'}).`;
-      const avatar = c.avatar || `https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80`;
+      const avatarUrl = c.avatarUrl || c.avatar || UNIQUE_CANDIDATE_AVATARS[name] || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(name)}`;
 
       const passedMissions = c.missions ? c.missions.filter((m: any) => m.passed) : [];
       const skippedMissions = c.missions ? c.missions.filter((m: any) => m.skipped || m.passed === false) : [];
@@ -48,7 +67,8 @@ export class InterviewAgentEngine {
         ...c,
         id,
         name,
-        avatar,
+        avatar: avatarUrl,
+        avatarUrl,
         target_role,
         completed_days,
         skipped_days,

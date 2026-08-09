@@ -2,6 +2,7 @@ export interface Candidate {
   id?: string;
   name?: string;
   avatar?: string;
+  avatarUrl?: string;
   target_role?: string;
   completed_days?: number[];
   skipped_days?: number[];

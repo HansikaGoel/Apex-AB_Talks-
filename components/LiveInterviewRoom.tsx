@@ -197,11 +197,11 @@ export const LiveInterviewRoom: React.FC<LiveInterviewRoomProps> = ({
       isAISpeakingRef.current = false;
       setIsAISpeaking(false);
 
-      // 3. Automatically resume Candidate Mic AFTER AI finishes speaking
+      // 3. Automatically resume Candidate Mic 500ms AFTER AI finishes speaking
       if (isMicEnabledRef.current && !loading && !isCompleted) {
         setTimeout(() => {
           startAudioCapture();
-        }, 300);
+        }, 500);
       }
 
       if (onComplete) onComplete();
@@ -247,21 +247,12 @@ export const LiveInterviewRoom: React.FC<LiveInterviewRoomProps> = ({
 
         // Live speech result accumulator pattern: handles final + interim speech streaming
         recognition.onresult = (event: any) => {
-          let finalTranscript = '';
-          let interimTranscript = '';
-
-          for (let i = 0; i < event.results.length; ++i) {
-            const transcriptChunk = event.results[i][0].transcript;
-            if (event.results[i].isFinal) {
-              finalTranscript += transcriptChunk + ' ';
-            } else {
-              interimTranscript += transcriptChunk;
-            }
+          let currentTranscript = '';
+          for (let i = event.resultIndex; i < event.results.length; i++) {
+            currentTranscript += event.results[i][0].transcript;
           }
-
-          const combined = (finalTranscript + interimTranscript).trim();
-          if (combined.length > 0) {
-            setInputText(combined);
+          if (currentTranscript.trim()) {
+            setInputText(currentTranscript.trim());
           }
         };
 
@@ -273,11 +264,11 @@ export const LiveInterviewRoom: React.FC<LiveInterviewRoomProps> = ({
             isRecordingRef.current = false;
             isMicEnabledRef.current = false;
           } else if (event.error === 'no-speech') {
-            // Ignore temporary silence without terminating recording
-          } else if (event.error === 'aborted') {
-            // Speech aborted by agent playback transition
-          } else {
-            console.warn('Speech recognition error event:', event.error);
+            if (!isAISpeakingRef.current && isMicEnabledRef.current && !loading && !isCompleted) {
+              setTimeout(() => {
+                try { recognition.start(); } catch (e) {}
+              }, 300);
+            }
           }
         };
 

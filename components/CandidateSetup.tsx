@@ -128,9 +128,14 @@ export const CandidateSetup: React.FC<CandidateSetupProps> = ({
                 }`}
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-teal-500 to-emerald-600 flex items-center justify-center text-slate-950 font-extrabold text-sm shadow-md ring-2 ring-slate-800 shrink-0">
-                    {initials}
-                  </div>
+                  <img
+                    src={cand.avatarUrl || cand.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(cName)}`}
+                    alt={cName}
+                    className="w-11 h-11 rounded-full object-cover ring-2 ring-teal-500/50 shadow-md shrink-0"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(cName)}`;
+                    }}
+                  />
                   <div className="min-w-0 flex-1">
                     <h3 className="text-sm font-bold text-slate-100 leading-tight truncate">{cName}</h3>
                     <span className="text-xs text-teal-400 font-medium block truncate">{cRole}</span>
