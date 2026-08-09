@@ -102,3 +102,25 @@ Generate a final structured evaluation report in JSON:
   "summary": "Detailed 3-paragraph executive summary synthesizing technical capability, growth trajectory, and recommendation rationale."
 }
 ```
+
+---
+
+## 5. Development & Vibe-Coding Prompts Log
+
+### A. Sequential Audio Synchronization & Mic Fix
+
+- **Intent:** Enforce strict turn-taking between AI voice output and candidate microphone input to prevent Web Audio thread lockouts in Chrome/Edge.
+- **Execution Prompt:**
+  > Act as a Lead Web Audio & React State Machine Architect. Update `components/LiveInterviewRoom.tsx` to enforce sequential turn-taking between AI voice output and candidate microphone input. Introduce a 500ms hardware release buffer inside `utterance.onend` before `startMicListening()` is called.
+
+### B. Candidate Setup UI & Dynamic Grades
+
+- **Intent:** Align candidate selection cards with reference layout and calculate grades dynamically from `localStorage` evaluation logs.
+- **Execution Prompt:**
+  > Replicate the reference card design layout on candidate setup cards with dark metric boxes, pill tags, and unique human avatars. Remove hardcoded grades and calculate candidate grades dynamically based on `localStorage` evaluation history.
+
+### C. Analytics Dashboard & Session Tracking
+
+- **Intent:** Map completed session history and dynamic attempt counters to the Analytics Dashboard candidate inspector.
+- **Execution Prompt:**
+  > Update `lib/agent-engine.ts` and `app/dashboard/page.tsx` to compute session attempt numbers dynamically from `interview_history` logs and render detailed candidate metrics inside the inspector drawer.
