@@ -124,3 +124,7 @@ Generate a final structured evaluation report in JSON:
 - **Intent:** Map completed session history and dynamic attempt counters to the Analytics Dashboard candidate inspector.
 - **Execution Prompt:**
   > Update `lib/agent-engine.ts` and `app/dashboard/page.tsx` to compute session attempt numbers dynamically from `interview_history` logs and render detailed candidate metrics inside the inspector drawer.
+
+## 🎬 Presentation & Video Demo
+
+- 📹 **Demo Video (Google Drive):** [Watch ABTalks Hackathon Presentation Video]()
