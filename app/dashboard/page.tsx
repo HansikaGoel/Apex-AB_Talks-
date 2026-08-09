@@ -152,7 +152,7 @@ export default function AnalyticsDashboardPage() {
   const activeSummary = activeRecord?.summary || activeRecord?.scorecard?.summary || 'Candidate completed all 8 technical evaluation turns.';
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 p-4 md:p-8 font-sans space-y-8">
+    <div className="min-h-screen w-full bg-slate-950 text-slate-100 p-4 sm:p-8 font-sans space-y-8 overflow-y-auto">
       {/* Top Navigation Header */}
       <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 pb-6 border-b border-slate-800">
         <div className="flex items-center gap-4">

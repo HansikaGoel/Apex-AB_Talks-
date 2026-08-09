@@ -38,7 +38,7 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
       case 'Lean Hire':
         return 'bg-amber-500/20 text-amber-300 border-amber-500/50';
       default:
-        return 'bg-teal-500/20 text-teal-300 border-teal-500/50';
+        return 'bg-rose-500/20 text-rose-300 border-rose-500/50';
     }
   };
 
@@ -93,19 +93,19 @@ ${summaryText}`;
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/80 backdrop-blur-md overflow-y-auto animate-fadeIn">
-      <div className="relative w-full max-w-4xl max-h-[90vh] bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 overflow-y-auto shadow-2xl flex flex-col gap-6 my-auto">
-        {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-6">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-slate-950/80 backdrop-blur-md overflow-hidden animate-fadeIn">
+      <div className="relative w-full max-w-4xl max-h-[85vh] bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl flex flex-col mx-auto overflow-hidden">
+        {/* Pinned Candidate Header */}
+        <div className="shrink-0 border-b border-slate-800 p-5 sm:p-6 bg-slate-900/90 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <img
               src={candidateAvatar}
               alt={candidateName}
-              className="w-16 h-16 rounded-full object-cover border-2 border-teal-500 shrink-0"
+              className="w-14 h-14 rounded-full object-cover border-2 border-teal-500 shrink-0"
             />
             <div>
               <div className="flex flex-wrap items-center gap-2">
-                <h2 className="text-2xl font-extrabold text-slate-100">{candidateName}</h2>
+                <h2 className="text-xl sm:text-2xl font-extrabold text-slate-100">{candidateName}</h2>
                 <span className="text-xs px-2.5 py-0.5 rounded-full bg-slate-800 text-teal-300 font-mono">
                   {candidateRole}
                 </span>
@@ -124,106 +124,109 @@ ${summaryText}`;
           </div>
         </div>
 
-        {/* Candidate Performance Scorecard */}
-        <div className="space-y-3">
-          <div className="flex items-center gap-2 text-xs font-bold text-slate-300 uppercase tracking-wider">
-            <BarChart2 className="w-4 h-4 text-teal-400" />
-            <span>Candidate Competency Scorecard</span>
-          </div>
+        {/* Internally Scrollable Body Content */}
+        <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-6 custom-scrollbar">
+          {/* Candidate Competency Scorecard */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 text-xs font-bold text-slate-300 uppercase tracking-wider">
+              <BarChart2 className="w-4 h-4 text-teal-400" />
+              <span>Candidate Competency Scorecard</span>
+            </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 bg-slate-950/60 border border-slate-800 rounded-2xl p-4 mt-1">
-            <div className="bg-slate-900/80 p-3.5 rounded-xl border border-slate-800 text-center space-y-1">
-              <div className="text-[10px] text-slate-400 uppercase font-bold tracking-wider pt-0.5">Technical Accuracy</div>
-              <div className="text-2xl font-mono font-extrabold text-teal-400 mt-1">{scores.technical_accuracy}%</div>
-            </div>
-            <div className="bg-slate-900/80 p-3.5 rounded-xl border border-slate-800 text-center space-y-1">
-              <div className="text-[10px] text-slate-400 uppercase font-bold tracking-wider pt-0.5">Communication</div>
-              <div className="text-2xl font-mono font-extrabold text-emerald-400 mt-1">{scores.communication}%</div>
-            </div>
-            <div className="bg-slate-900/80 p-3.5 rounded-xl border border-slate-800 text-center space-y-1">
-              <div className="text-[10px] text-slate-400 uppercase font-bold tracking-wider pt-0.5">Problem Solving</div>
-              <div className="text-2xl font-mono font-extrabold text-indigo-400 mt-1">{scores.problem_solving}%</div>
-            </div>
-            <div className="bg-slate-900/80 p-3.5 rounded-xl border border-slate-800 text-center space-y-1">
-              <div className="text-[10px] text-slate-400 uppercase font-bold tracking-wider pt-0.5">Confidence</div>
-              <div className="text-2xl font-mono font-extrabold text-amber-400 mt-1">{scores.confidence}%</div>
-            </div>
-          </div>
-        </div>
-
-        {/* Cohort Topic Mastery Grid */}
-        <div className="space-y-3">
-          <div className="flex items-center gap-2 text-xs font-bold text-slate-300 uppercase tracking-wider">
-            <Award className="w-4 h-4 text-teal-400" />
-            <span>Cohort Topic Mastery Breakdown</span>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-950/60 border border-slate-800 rounded-2xl p-5">
-            {Object.entries(feedback?.topic_mastery || { "System Architecture": 88, "RAG Retrieval": 86, "Prompt Security": 90, "MCP Tooling": 84 }).map(([topic, pct], idx) => (
-              <div key={idx} className="space-y-1.5">
-                <div className="flex justify-between text-xs font-medium">
-                  <span className="text-slate-300">{topic}</span>
-                  <span className="text-teal-400 font-mono font-bold">{pct}%</span>
-                </div>
-                <div className="w-full h-2 rounded-full bg-slate-800 overflow-hidden">
-                  <div
-                    className="h-full bg-gradient-to-r from-teal-500 to-emerald-400 rounded-full"
-                    style={{ width: `${pct}%` }}
-                  />
-                </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 bg-slate-950/60 border border-slate-800 rounded-2xl p-4">
+              <div className="bg-slate-900/80 p-3.5 rounded-xl border border-slate-800 text-center space-y-1">
+                <div className="text-[10px] text-slate-400 uppercase font-bold tracking-wider pt-0.5">Technical Accuracy</div>
+                <div className="text-xl sm:text-2xl font-mono font-extrabold text-teal-400 mt-1">{scores.technical_accuracy}%</div>
               </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Strengths & Improvement Areas Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Key Strengths */}
-          <div className="rounded-2xl bg-slate-950/60 border border-emerald-950/60 p-5 space-y-3">
-            <div className="flex items-center gap-2 text-xs font-bold text-emerald-400 uppercase">
-              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-              <span>Demonstrated Key Strengths</span>
+              <div className="bg-slate-900/80 p-3.5 rounded-xl border border-slate-800 text-center space-y-1">
+                <div className="text-[10px] text-slate-400 uppercase font-bold tracking-wider pt-0.5">Communication</div>
+                <div className="text-xl sm:text-2xl font-mono font-extrabold text-emerald-400 mt-1">{scores.communication}%</div>
+              </div>
+              <div className="bg-slate-900/80 p-3.5 rounded-xl border border-slate-800 text-center space-y-1">
+                <div className="text-[10px] text-slate-400 uppercase font-bold tracking-wider pt-0.5">Problem Solving</div>
+                <div className="text-xl sm:text-2xl font-mono font-extrabold text-indigo-400 mt-1">{scores.problem_solving}%</div>
+              </div>
+              <div className="bg-slate-900/80 p-3.5 rounded-xl border border-slate-800 text-center space-y-1">
+                <div className="text-[10px] text-slate-400 uppercase font-bold tracking-wider pt-0.5">Confidence</div>
+                <div className="text-xl sm:text-2xl font-mono font-extrabold text-amber-400 mt-1">{scores.confidence}%</div>
+              </div>
             </div>
-            <ul className="space-y-2">
-              {strengthsList.map((s, idx) => (
-                <li key={idx} className="flex items-start gap-2.5 text-xs text-slate-300 leading-relaxed">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 mt-1.5 shrink-0" />
-                  <span>{s}</span>
-                </li>
-              ))}
-            </ul>
           </div>
 
-          {/* Areas for Improvement */}
-          <div className="rounded-2xl bg-slate-950/60 border border-amber-950/60 p-5 space-y-3">
-            <div className="flex items-center gap-2 text-xs font-bold text-amber-400 uppercase">
-              <AlertTriangle className="w-4 h-4 text-amber-400" />
-              <span>Areas for Growth & Improvement</span>
+          {/* Cohort Topic Mastery Grid */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 text-xs font-bold text-slate-300 uppercase tracking-wider">
+              <Award className="w-4 h-4 text-teal-400" />
+              <span>Cohort Topic Mastery Breakdown</span>
             </div>
-            <ul className="space-y-2">
-              {gapsList.map((w, idx) => (
-                <li key={idx} className="flex items-start gap-2.5 text-xs text-slate-300 leading-relaxed">
-                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400 mt-1.5 shrink-0" />
-                  <span>{w}</span>
-                </li>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-950/60 border border-slate-800 rounded-2xl p-5">
+              {Object.entries(feedback?.topic_mastery || { "System Architecture": 88, "RAG Retrieval": 86, "Prompt Security": 90, "MCP Tooling": 84 }).map(([topic, pct], idx) => (
+                <div key={idx} className="space-y-1.5">
+                  <div className="flex justify-between text-xs font-medium">
+                    <span className="text-slate-300">{topic}</span>
+                    <span className="text-teal-400 font-mono font-bold">{pct}%</span>
+                  </div>
+                  <div className="w-full h-2 rounded-full bg-slate-800 overflow-hidden">
+                    <div
+                      className="h-full bg-gradient-to-r from-teal-500 to-emerald-400 rounded-full"
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                </div>
               ))}
-            </ul>
+            </div>
+          </div>
+
+          {/* Strengths & Growth Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Key Strengths */}
+            <div className="rounded-2xl bg-slate-950/60 border border-emerald-950/60 p-5 space-y-3">
+              <div className="flex items-center gap-2 text-xs font-bold text-emerald-400 uppercase">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                <span>Demonstrated Key Strengths</span>
+              </div>
+              <ul className="space-y-2">
+                {strengthsList.map((s, idx) => (
+                  <li key={idx} className="flex items-start gap-2.5 text-xs text-slate-300 leading-relaxed">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 mt-1.5 shrink-0" />
+                    <span>{s}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* Areas for Improvement */}
+            <div className="rounded-2xl bg-slate-950/60 border border-amber-950/60 p-5 space-y-3">
+              <div className="flex items-center gap-2 text-xs font-bold text-amber-400 uppercase">
+                <AlertTriangle className="w-4 h-4 text-amber-400" />
+                <span>Areas for Growth & Improvement</span>
+              </div>
+              <ul className="space-y-2">
+                {gapsList.map((w, idx) => (
+                  <li key={idx} className="flex items-start gap-2.5 text-xs text-slate-300 leading-relaxed">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400 mt-1.5 shrink-0" />
+                    <span>{w}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+
+          {/* Executive Summary */}
+          <div className="rounded-2xl bg-slate-950/60 border border-slate-800 p-5 space-y-2">
+            <div className="flex items-center gap-2 text-xs font-bold text-slate-300 uppercase tracking-wider">
+              <FileText className="w-4 h-4 text-teal-400" />
+              <span>Executive Evaluation Summary</span>
+            </div>
+            <p className="text-xs text-slate-300 leading-relaxed whitespace-pre-line">
+              {summaryText}
+            </p>
           </div>
         </div>
 
-        {/* Executive Summary */}
-        <div className="rounded-2xl bg-slate-950/60 border border-slate-800 p-5 space-y-2">
-          <div className="flex items-center gap-2 text-xs font-bold text-slate-300 uppercase tracking-wider">
-            <FileText className="w-4 h-4 text-teal-400" />
-            <span>Executive Evaluation Summary</span>
-          </div>
-          <p className="text-xs text-slate-300 leading-relaxed whitespace-pre-line">
-            {summaryText}
-          </p>
-        </div>
-
-        {/* Footer Actions & Export Buttons */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-slate-800 mt-2">
+        {/* Pinned Footer Actions */}
+        <div className="shrink-0 border-t border-slate-800 p-5 bg-slate-900/90 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="text-xs text-slate-500 font-mono">
             Breeth AI Memory Verified &bull; ABTalks Hackathon 2026
           </div>

@@ -57,25 +57,27 @@ function PageContent() {
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
+      <main className="h-screen w-screen overflow-hidden flex flex-col items-center justify-center m-0 p-0 bg-slate-950">
         <Loader2 className="w-8 h-8 text-teal-400 animate-spin" />
-        <p className="text-xs text-slate-400 font-mono">Initializing The Interview Agent & Breeth AI Memory Layer...</p>
-      </div>
+        <p className="text-xs text-slate-400 font-mono mt-4">Initializing The Interview Agent & Breeth AI Memory Layer...</p>
+      </main>
     );
   }
 
   return (
-    <div className="w-full animate-fadeIn">
+    <main className="h-screen w-screen overflow-hidden flex flex-col m-0 p-0 bg-slate-950">
       {currentStep === 1 ? (
-        <CandidateSetup
-          candidates={candidates}
-          selectedCandidateId={selectedCandidate?.id || selectedCandidate?.member?.id || null}
-          onSelectCandidate={(cand) => setSelectedCandidate(cand)}
-          onLaunchInterview={(customCand) => {
-            if (customCand) setSelectedCandidate(customCand);
-            setCurrentStep(2);
-          }}
-        />
+        <div className="w-full h-full overflow-y-auto p-4 md:p-6">
+          <CandidateSetup
+            candidates={candidates}
+            selectedCandidateId={selectedCandidate?.id || selectedCandidate?.member?.id || null}
+            onSelectCandidate={(cand) => setSelectedCandidate(cand)}
+            onLaunchInterview={(customCand) => {
+              if (customCand) setSelectedCandidate(customCand);
+              setCurrentStep(2);
+            }}
+          />
+        </div>
       ) : (
         selectedCandidate && (
           <LiveInterviewRoom
@@ -84,7 +86,7 @@ function PageContent() {
           />
         )
       )}
-    </div>
+    </main>
   );
 }
 
@@ -92,10 +94,10 @@ export default function Home() {
   return (
     <Suspense
       fallback={
-        <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
+        <main className="h-screen w-screen overflow-hidden flex flex-col items-center justify-center m-0 p-0 bg-slate-950">
           <Loader2 className="w-8 h-8 text-teal-400 animate-spin" />
-          <p className="text-xs text-slate-400 font-mono">Loading Page...</p>
-        </div>
+          <p className="text-xs text-slate-400 font-mono mt-4">Loading Page...</p>
+        </main>
       }
     >
       <PageContent />

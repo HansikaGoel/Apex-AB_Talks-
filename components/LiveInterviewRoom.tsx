@@ -171,67 +171,69 @@ export const LiveInterviewRoom: React.FC<LiveInterviewRoomProps> = ({
     window.speechSynthesis.speak(utterance);
   };
 
-  // Microphone Audio Capture Handler (User-Gesture Triggered)
+  // Real-Time Speech Input Streaming Setup
   const startAudioCapture = async () => {
-    if (isRecordingRef.current) return;
     setMicError(null);
-
     try {
-      // 1. Direct user-gesture mic permission request
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      setMicStream(stream);
-      setIsRecording(true);
-      isRecordingRef.current = true;
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        setMicStream(stream);
+      }
 
-      // 2. Web Speech Recognition setup
       const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+
       if (SpeechRecognition) {
         if (recognitionRef.current) {
           try { recognitionRef.current.stop(); } catch (e) {}
         }
+
         const recognition = new SpeechRecognition();
         recognition.continuous = true;
         recognition.interimResults = true;
-        recognition.maxAlternatives = 1;
         recognition.lang = 'en-US';
 
-        // Real-time transcript accumulator pattern
+        recognition.onstart = () => {
+          setIsRecording(true);
+          isRecordingRef.current = true;
+        };
+
+        // Live speech result accumulator pattern
         recognition.onresult = (event: any) => {
-          let interimTranscript = '';
-          let finalTranscript = '';
-
-          for (let i = event.resultIndex; i < event.results.length; ++i) {
-            if (event.results[i].isFinal) {
-              finalTranscript += event.results[i][0].transcript + ' ';
-            } else {
-              interimTranscript += event.results[i][0].transcript;
-            }
+          let currentTranscript = '';
+          for (let i = 0; i < event.results.length; i++) {
+            currentTranscript += event.results[i][0].transcript;
           }
+          setInputText(currentTranscript);
+        };
 
-          setInputText((prev) => {
-            const combined = (finalTranscript + interimTranscript).trim();
-            return combined.length > 0 ? combined : prev;
-          });
+        recognition.onerror = (event: any) => {
+          console.warn('Speech recognition notice:', event.error);
+          if (event.error === 'not-allowed') {
+            setMicError('Microphone access was denied. Please allow microphone permissions in your browser bar.');
+          }
         };
 
         recognition.onend = () => {
-          // Keep mic active on end while interview is active (prevents timeout on natural pauses)
           if (isRecordingRef.current) {
-            try { recognition.start(); } catch (e) {}
+            try {
+              recognition.start();
+            } catch (err) {
+              console.warn('Could not auto-restart recognition:', err);
+            }
+          } else {
+            setIsRecording(false);
           }
         };
 
-        recognition.onerror = (e: any) => {
-          console.warn('Speech recognition notice:', e.error);
-        };
-
-        recognition.start();
         recognitionRef.current = recognition;
+        recognition.start();
       } else {
-        // Fallback simulation text snippet if browser speech recognition is unequipped
+        // Fallback simulation if SpeechRecognition Web API is unsupported
+        setIsRecording(true);
+        isRecordingRef.current = true;
         const sampleVoiceTranscripts = [
-          "In high-scale vector databases, we tune HNSW graph parameters m and ef_construction to optimize search recall while controlling memory overhead.",
-          "When designing ReAct loops, I implement strict iteration depth limits and fallback schema parsers to safeguard against infinite loops.",
+          "I prioritize dense vector search using HNSW indexing with m=16 and ef_construction=200 for low latency QPS.",
+          "For prompt engineering, I implement strict CoT schemas and wrap user inputs in xml delimiters to block prompt injection.",
           "Model Context Protocol (MCP) standardizes host-to-tool JSON-RPC transport over SSE or Stdio, decoupling client integration logic."
         ];
         const randomTranscript = sampleVoiceTranscripts[Math.floor(Math.random() * sampleVoiceTranscripts.length)];
@@ -306,7 +308,7 @@ export const LiveInterviewRoom: React.FC<LiveInterviewRoomProps> = ({
     loadFirstQuestion();
   }, [candidateId, sessionId, persona]);
 
-  // Handle explicit user gesture click to launch room, enable mic & speak opening question out loud
+  // Unblock Audio & Launch Interview on Direct Click Gesture
   const handleLaunchInterviewAndEnableMic = async () => {
     setHasStarted(true);
     setSpeechEnabled(true);
@@ -430,10 +432,10 @@ export const LiveInterviewRoom: React.FC<LiveInterviewRoomProps> = ({
   };
 
   return (
-    <div className="relative w-full max-w-6xl mx-auto flex flex-col h-[calc(100vh-6rem)] animate-fadeIn space-y-4">
+    <div className="h-screen w-screen overflow-hidden flex flex-col justify-between p-3 sm:p-4 bg-slate-950 gap-3 text-slate-100 font-sans select-none">
       {/* Entry Modal Overlay for User-Gesture Mic Activation & Speech Unlock */}
       {!hasStarted && (
-        <div className="absolute inset-0 z-40 bg-black/85 backdrop-blur-md rounded-2xl flex flex-col items-center justify-center p-6 text-center space-y-6 animate-fadeIn">
+        <div className="fixed inset-0 z-40 bg-black/85 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center space-y-6 animate-fadeIn">
           <div className="w-16 h-16 rounded-full bg-teal-950 border-2 border-teal-500 flex items-center justify-center text-teal-400 shadow-xl shadow-teal-500/20">
             <Mic className="w-8 h-8 animate-pulse" />
           </div>
@@ -454,9 +456,9 @@ export const LiveInterviewRoom: React.FC<LiveInterviewRoomProps> = ({
         </div>
       )}
 
-      {/* Top Header Card */}
-      <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 flex flex-col md:flex-row items-center justify-between gap-4 shadow-xl">
-        <div className="flex items-center gap-4 w-full md:w-auto">
+      {/* Top Profile Header Card (Fixed Height ~20%) */}
+      <div className="shrink-0 bg-slate-900/90 border border-slate-800 rounded-2xl p-3 py-2.5 flex flex-col md:flex-row items-center justify-between gap-3 shadow-xl">
+        <div className="flex items-center gap-3 w-full md:w-auto">
           <button
             onClick={() => {
               stopAudioCapture();
@@ -465,28 +467,28 @@ export const LiveInterviewRoom: React.FC<LiveInterviewRoomProps> = ({
             className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors cursor-pointer"
             title="Back to Candidate Dashboard"
           >
-            <ArrowLeft className="w-5 h-5" />
+            <ArrowLeft className="w-4 h-4" />
           </button>
           <img
             src={candidateAvatar}
             alt={candidateName}
-            className="w-10 h-10 rounded-full object-cover border-2 border-teal-500"
+            className="w-9 h-9 rounded-full object-cover border-2 border-teal-500 shrink-0"
           />
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="font-bold text-slate-100 text-base">{candidateName}</h2>
+              <h2 className="font-bold text-slate-100 text-sm">{candidateName}</h2>
               <span className="text-[10px] px-2 py-0.5 rounded bg-teal-950 text-teal-300 border border-teal-800 font-mono">
                 {candidateRole}
               </span>
             </div>
-            <p className="text-xs text-slate-400">Evaluating 31-Day AI Cohort Mastery</p>
+            <p className="text-[11px] text-slate-400">Evaluating 31-Day AI Cohort Mastery</p>
           </div>
         </div>
 
-        {/* Persona & Voice Speed Toggles + Breeth AI Inspector */}
-        <div className="flex flex-wrap items-center gap-3 w-full md:w-auto justify-end text-xs">
+        {/* Header Controls & Active Timer Badge */}
+        <div className="flex flex-wrap items-center gap-2.5 w-full md:w-auto justify-end text-xs">
           {/* 5-Minute Per-Question Countdown Timer Badge */}
-          <div className={`px-3 py-1.5 rounded-xl border flex items-center gap-1.5 font-mono text-xs font-bold transition-all shadow-sm ${
+          <div className={`px-3 py-1 rounded-xl border flex items-center gap-1.5 font-mono text-xs font-bold transition-all shadow-sm ${
             timeLeft < 60
               ? 'bg-rose-950/80 text-rose-400 border-rose-800 animate-pulse'
               : 'bg-slate-950 border-slate-800 text-teal-300'
@@ -496,10 +498,10 @@ export const LiveInterviewRoom: React.FC<LiveInterviewRoomProps> = ({
           </div>
 
           {/* Persona Selector */}
-          <div className="flex items-center gap-1.5 bg-slate-950 border border-slate-800 rounded-xl p-1">
+          <div className="flex items-center gap-1 bg-slate-950 border border-slate-800 rounded-xl p-1">
             <button
               onClick={() => setPersona('Strict Tech Lead')}
-              className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer ${
+              className={`px-2 py-0.5 rounded-lg text-[10px] font-semibold transition-all cursor-pointer ${
                 persona === 'Strict Tech Lead' ? 'bg-teal-500 text-slate-950' : 'text-slate-400 hover:text-slate-200'
               }`}
             >
@@ -507,7 +509,7 @@ export const LiveInterviewRoom: React.FC<LiveInterviewRoomProps> = ({
             </button>
             <button
               onClick={() => setPersona('Encouraging Mentor')}
-              className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer ${
+              className={`px-2 py-0.5 rounded-lg text-[10px] font-semibold transition-all cursor-pointer ${
                 persona === 'Encouraging Mentor' ? 'bg-emerald-500 text-slate-950' : 'text-slate-400 hover:text-slate-200'
               }`}
             >
@@ -521,7 +523,7 @@ export const LiveInterviewRoom: React.FC<LiveInterviewRoomProps> = ({
               <button
                 key={speed}
                 onClick={() => setVoiceSpeed(speed)}
-                className={`px-2 py-0.5 rounded text-[10px] font-bold transition-colors cursor-pointer ${
+                className={`px-1.5 py-0.5 rounded text-[10px] font-bold transition-colors cursor-pointer ${
                   voiceSpeed === speed ? 'bg-slate-800 text-teal-400 border border-teal-500/50' : 'text-slate-500 hover:text-slate-300'
                 }`}
               >
@@ -533,23 +535,23 @@ export const LiveInterviewRoom: React.FC<LiveInterviewRoomProps> = ({
           {/* Speech Synthesis Mute Toggle */}
           <button
             onClick={() => setSpeechEnabled(!speechEnabled)}
-            className={`p-2 rounded-xl border transition-colors cursor-pointer ${
+            className={`p-1.5 rounded-xl border transition-colors cursor-pointer ${
               speechEnabled
                 ? 'bg-teal-950 text-teal-400 border-teal-800'
                 : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-slate-200'
             }`}
             title={speechEnabled ? 'Disable Agent Speech Read-Aloud' : 'Enable Agent Speech Read-Aloud'}
           >
-            {speechEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+            {speechEnabled ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
           </button>
 
           {/* Breeth AI Inspector Button */}
           <button
             onClick={() => setIsMemoryOpen(true)}
-            className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-gradient-to-r from-teal-950 to-slate-900 hover:from-teal-900 border border-teal-700/50 text-teal-300 font-semibold shadow-lg transition-all cursor-pointer"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-teal-950 to-slate-900 hover:from-teal-900 border border-teal-700/50 text-teal-300 font-semibold shadow-lg transition-all cursor-pointer text-xs"
           >
-            <Brain className="w-4 h-4 text-teal-400 animate-pulse" />
-            <span>Breeth AI Inspector</span>
+            <Brain className="w-3.5 h-3.5 text-teal-400 animate-pulse" />
+            <span>Breeth AI</span>
             {recalledMemories.length > 0 && (
               <span className="px-1.5 py-0.5 rounded-full bg-teal-500 text-slate-950 font-mono text-[10px] font-bold">
                 {recalledMemories.length}
@@ -561,7 +563,7 @@ export const LiveInterviewRoom: React.FC<LiveInterviewRoomProps> = ({
 
       {/* Permission Error Banner */}
       {micError && (
-        <div className="bg-rose-950/60 border border-rose-800/80 rounded-xl p-3 text-xs text-rose-300 flex items-center justify-between gap-3 animate-fadeIn">
+        <div className="shrink-0 bg-rose-950/60 border border-rose-800/80 rounded-xl p-2 px-3 text-xs text-rose-300 flex items-center justify-between gap-3 animate-fadeIn my-1">
           <div className="flex items-center gap-2">
             <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
             <span>{micError}</span>
@@ -573,14 +575,16 @@ export const LiveInterviewRoom: React.FC<LiveInterviewRoomProps> = ({
       )}
 
       {/* Progress Bar */}
-      <TopicCoverageBar
-        currentStep={currentStep}
-        totalSteps={totalSteps}
-        coveredTopics={coveredTopics}
-      />
+      <div className="shrink-0 my-1">
+        <TopicCoverageBar
+          currentStep={currentStep}
+          totalSteps={totalSteps}
+          coveredTopics={coveredTopics}
+        />
+      </div>
 
-      {/* Chat Timeline */}
-      <div className="flex-1 bg-slate-900/60 border border-slate-800 rounded-2xl p-4 md:p-6 overflow-y-auto space-y-4 shadow-inner">
+      {/* Middle Question & Chat Timeline (Flex Growing Area - ONLY this section scrolls) */}
+      <div className="flex-1 min-h-0 bg-slate-900/60 border border-slate-800 rounded-xl p-4 overflow-y-auto space-y-4 shadow-inner flex flex-col justify-between">
         {messages.map((msg) => (
           <div
             key={msg.id}
@@ -590,13 +594,13 @@ export const LiveInterviewRoom: React.FC<LiveInterviewRoomProps> = ({
           >
             {/* Avatar Icon */}
             <div
-              className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 border ${
+              className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 border ${
                 msg.sender === 'agent'
                   ? 'bg-teal-950 border-teal-500 text-teal-400'
                   : 'bg-slate-800 border-slate-700 text-slate-200'
               }`}
             >
-              {msg.sender === 'agent' ? <Bot className="w-5 h-5" /> : <User className="w-5 h-5" />}
+              {msg.sender === 'agent' ? <Bot className="w-4 h-4" /> : <User className="w-4 h-4" />}
             </div>
 
             {/* Bubble */}
@@ -615,7 +619,7 @@ export const LiveInterviewRoom: React.FC<LiveInterviewRoomProps> = ({
               </div>
 
               <div
-                className={`p-4 rounded-2xl text-sm leading-relaxed ${
+                className={`p-3.5 rounded-2xl text-xs sm:text-sm leading-relaxed ${
                   msg.sender === 'agent'
                     ? 'bg-slate-900 border border-slate-800 text-slate-200 shadow-md'
                     : 'bg-teal-600 text-slate-950 font-medium shadow-lg'
@@ -645,7 +649,7 @@ export const LiveInterviewRoom: React.FC<LiveInterviewRoomProps> = ({
         ))}
 
         {loading && (
-          <div className="flex items-center gap-3 text-xs text-teal-400 font-medium p-4 rounded-2xl bg-slate-900/60 border border-slate-800 w-fit animate-pulse">
+          <div className="flex items-center gap-3 text-xs text-teal-400 font-medium p-3 rounded-2xl bg-slate-900/60 border border-slate-800 w-fit animate-pulse">
             <Loader2 className="w-4 h-4 animate-spin" />
             <span>Breeth AI Memory & Intent Querying...</span>
           </div>
@@ -654,8 +658,8 @@ export const LiveInterviewRoom: React.FC<LiveInterviewRoomProps> = ({
         <div ref={chatBottomRef} />
       </div>
 
-      {/* Answer Input Box & Audio Controls */}
-      <form onSubmit={handleSendMessage} className="relative bg-slate-900 border border-slate-800 rounded-2xl p-3 shadow-xl space-y-2">
+      {/* Fixed Bottom Answer Input Box & Audio Controls */}
+      <form onSubmit={handleSendMessage} className="shrink-0 bg-slate-900 border border-slate-800 rounded-2xl p-2.5 shadow-xl space-y-2">
         {/* Audio Recording Active Visualizer Bar */}
         {isRecording && (
           <div className="flex items-center justify-between px-2 pb-1 border-b border-slate-800">
@@ -669,61 +673,55 @@ export const LiveInterviewRoom: React.FC<LiveInterviewRoomProps> = ({
           <button
             type="button"
             onClick={toggleRecording}
-            className={`p-3 rounded-xl transition-all cursor-pointer ${
+            className={`p-2.5 rounded-xl transition-all cursor-pointer ${
               isRecording
                 ? 'bg-rose-500/20 text-rose-400 border border-rose-500 animate-pulse'
                 : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700'
             }`}
             title={isRecording ? 'Stop Voice Recording' : 'Start Audio Microphone Recording'}
           >
-            {isRecording ? <Radio className="w-5 h-5 text-rose-400" /> : <Mic className="w-5 h-5" />}
+            {isRecording ? <Radio className="w-4 h-4 text-rose-400" /> : <Mic className="w-4 h-4" />}
           </button>
 
+          {/* Text Input Area */}
           <input
             type="text"
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
+            placeholder={isRecording ? 'Listening... Speak your answer into microphone...' : 'Type candidate technical answer here...'}
             disabled={loading || isCompleted}
-            placeholder={
-              isRecording
-                ? 'Listening to candidate voice input in real time...'
-                : isCompleted
-                ? 'Interview completed. View Feedback Report.'
-                : 'Type detailed technical response or use voice input...'
-            }
-            className="flex-1 bg-transparent px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:outline-none"
+            className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs sm:text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-teal-500 transition-colors disabled:opacity-50"
           />
 
+          {/* Submit Button */}
           <button
             type="submit"
             disabled={!inputText.trim() || loading || isCompleted}
-            className="flex items-center gap-2 px-5 py-3 rounded-xl bg-teal-500 hover:bg-teal-400 disabled:opacity-40 disabled:hover:bg-teal-500 text-slate-950 font-bold text-xs transition-all cursor-pointer shadow-lg shadow-teal-500/20"
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-teal-500 hover:bg-teal-400 disabled:bg-slate-800 text-slate-950 disabled:text-slate-500 font-bold text-xs shadow-lg transition-all cursor-pointer disabled:cursor-not-allowed"
           >
-            <span>Send Response</span>
+            <span>Submit</span>
             <Send className="w-4 h-4" />
           </button>
         </div>
       </form>
 
-      {/* Memory Inspector Drawer */}
+      {/* Memory Drawer Side Panel */}
       <MemoryDrawer
         isOpen={isMemoryOpen}
         onClose={() => setIsMemoryOpen(false)}
         recalledMemories={recalledMemories}
-        followUpReasoning={latestReasoning}
         candidateName={candidateName}
       />
 
-      {/* Evaluation Feedback Modal */}
-      <FeedbackModal
-        isOpen={isCompleted}
-        candidate={candidate}
-        feedback={feedback}
-        onRestart={() => {
-          stopAudioCapture();
-          onBackToDashboard();
-        }}
-      />
+      {/* Final Evaluation Report Modal */}
+      {isCompleted && feedback && (
+        <FeedbackModal
+          isOpen={isCompleted}
+          candidate={candidate}
+          feedback={feedback}
+          onRestart={onBackToDashboard}
+        />
+      )}
     </div>
   );
 };
