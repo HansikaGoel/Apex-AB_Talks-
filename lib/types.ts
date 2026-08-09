@@ -7,7 +7,8 @@ export interface Candidate {
   skipped_days?: number[];
   completed_missions?: string[];
   skipped_topics?: string[];
-  learning_signals?: Record<string, any>;
+  learning_signals?: any;
+  attempts?: number;
   known_strengths?: string[];
   focus_areas?: string[];
   cohort_grade?: string;

@@ -24,7 +24,8 @@ import {
   Sliders,
   Radio,
   FileText,
-  Clock
+  Clock,
+  Power
 } from 'lucide-react';
 
 interface ChatMessage {
@@ -80,6 +81,9 @@ export const LiveInterviewRoom: React.FC<LiveInterviewRoomProps> = ({
   const chatBottomRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
   const isRecordingRef = useRef<boolean>(false);
+  const isMicEnabledRef = useRef<boolean>(false);
+  const isAISpeakingRef = useRef<boolean>(false);
+  const [isAISpeaking, setIsAISpeaking] = useState<boolean>(false);
 
   // Sync ref
   useEffect(() => {
@@ -137,30 +141,70 @@ export const LiveInterviewRoom: React.FC<LiveInterviewRoomProps> = ({
     chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, loading]);
 
+  // Automated Re-initialization Effect on Question / Turn Step Change
+  useEffect(() => {
+    if (!hasStarted || isCompleted) return;
+
+    // Clear candidate input for new question turn
+    setInputText('');
+
+    // If candidate enabled microphone, re-initialize recognition for Question 2+
+    if (isMicEnabledRef.current && !loading && !isAISpeakingRef.current) {
+      const restartMic = async () => {
+        try {
+          if (recognitionRef.current) {
+            try { recognitionRef.current.stop(); } catch (e) {}
+          }
+          await startAudioCapture();
+        } catch (err) {
+          console.error("Failed to re-initialize microphone on turn change:", err);
+        }
+      };
+
+      const timer = setTimeout(() => {
+        restartMic();
+      }, 500);
+
+      return () => clearTimeout(timer);
+    }
+  }, [currentStep]);
+
   // Robust Text-to-Speech (TTS) Function Implementation
-  const speakText = (text: string) => {
-    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+  const speakText = (text: string, onComplete?: () => void) => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+      if (onComplete) onComplete();
+      return;
+    }
     
-    // Cancel any ongoing or pending speech
+    // 1. Pause microphone to prevent hearing TTS output
+    if (recognitionRef.current) {
+      try { recognitionRef.current.stop(); } catch (e) {}
+    }
+
+    // 2. Cancel any ongoing or pending speech
     window.speechSynthesis.cancel();
 
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.rate = voiceSpeed;
     utterance.pitch = persona === 'Strict Tech Lead' ? 0.95 : 1.05;
 
-    // Pause mic during AI playback and resume upon completion
     utterance.onstart = () => {
-      if (recognitionRef.current) {
-        try { recognitionRef.current.stop(); } catch (e) {}
-      }
+      isAISpeakingRef.current = true;
+      setIsAISpeaking(true);
     };
 
-    utterance.onend = () => {
-      if (isRecordingRef.current) {
+    utterance.onend = utterance.onerror = () => {
+      isAISpeakingRef.current = false;
+      setIsAISpeaking(false);
+
+      // 3. Automatically resume Candidate Mic AFTER AI finishes speaking
+      if (isMicEnabledRef.current && !loading && !isCompleted) {
         setTimeout(() => {
           startAudioCapture();
-        }, 200);
+        }, 300);
       }
+
+      if (onComplete) onComplete();
     };
     
     // Pick an English voice if available
@@ -173,6 +217,8 @@ export const LiveInterviewRoom: React.FC<LiveInterviewRoomProps> = ({
 
   // Real-Time Speech Input Streaming Setup
   const startAudioCapture = async () => {
+    if (isAISpeakingRef.current) return; // Block mic while AI speaks
+
     setMicError(null);
     try {
       if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
@@ -180,7 +226,8 @@ export const LiveInterviewRoom: React.FC<LiveInterviewRoomProps> = ({
         setMicStream(stream);
       }
 
-      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      const SpeechRecognition = typeof window !== 'undefined' &&
+        ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition);
 
       if (SpeechRecognition) {
         if (recognitionRef.current) {
@@ -195,30 +242,51 @@ export const LiveInterviewRoom: React.FC<LiveInterviewRoomProps> = ({
         recognition.onstart = () => {
           setIsRecording(true);
           isRecordingRef.current = true;
+          isMicEnabledRef.current = true;
         };
 
-        // Live speech result accumulator pattern
+        // Live speech result accumulator pattern: handles final + interim speech streaming
         recognition.onresult = (event: any) => {
-          let currentTranscript = '';
-          for (let i = 0; i < event.results.length; i++) {
-            currentTranscript += event.results[i][0].transcript;
+          let finalTranscript = '';
+          let interimTranscript = '';
+
+          for (let i = 0; i < event.results.length; ++i) {
+            const transcriptChunk = event.results[i][0].transcript;
+            if (event.results[i].isFinal) {
+              finalTranscript += transcriptChunk + ' ';
+            } else {
+              interimTranscript += transcriptChunk;
+            }
           }
-          setInputText(currentTranscript);
+
+          const combined = (finalTranscript + interimTranscript).trim();
+          if (combined.length > 0) {
+            setInputText(combined);
+          }
         };
 
         recognition.onerror = (event: any) => {
           console.warn('Speech recognition notice:', event.error);
-          if (event.error === 'not-allowed') {
-            setMicError('Microphone access was denied. Please allow microphone permissions in your browser bar.');
+          if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+            setMicError('Microphone permission was denied. Please check your browser microphone settings.');
+            setIsRecording(false);
+            isRecordingRef.current = false;
+            isMicEnabledRef.current = false;
+          } else if (event.error === 'no-speech') {
+            // Ignore temporary silence without terminating recording
+          } else if (event.error === 'aborted') {
+            // Speech aborted by agent playback transition
+          } else {
+            console.warn('Speech recognition error event:', event.error);
           }
         };
 
         recognition.onend = () => {
-          if (isRecordingRef.current) {
+          if (isMicEnabledRef.current && !isAISpeakingRef.current && !loading && !isCompleted) {
             try {
               recognition.start();
             } catch (err) {
-              console.warn('Could not auto-restart recognition:', err);
+              console.warn('Could not auto-restart speech recognition:', err);
             }
           } else {
             setIsRecording(false);
@@ -227,10 +295,12 @@ export const LiveInterviewRoom: React.FC<LiveInterviewRoomProps> = ({
 
         recognitionRef.current = recognition;
         recognition.start();
+        isMicEnabledRef.current = true;
       } else {
         // Fallback simulation if SpeechRecognition Web API is unsupported
         setIsRecording(true);
         isRecordingRef.current = true;
+        isMicEnabledRef.current = true;
         const sampleVoiceTranscripts = [
           "I prioritize dense vector search using HNSW indexing with m=16 and ef_construction=200 for low latency QPS.",
           "For prompt engineering, I implement strict CoT schemas and wrap user inputs in xml delimiters to block prompt injection.",
@@ -246,20 +316,51 @@ export const LiveInterviewRoom: React.FC<LiveInterviewRoomProps> = ({
       setMicError('Microphone access was denied or is blocked by browser media settings. You can type technical responses below.');
       setIsRecording(false);
       isRecordingRef.current = false;
+      isMicEnabledRef.current = false;
     }
   };
 
-  const stopAudioCapture = () => {
-    isRecordingRef.current = false;
-    setIsRecording(false);
+  // Comprehensive Audio Reset & Stack Tear-Down Routine
+  const purgeAudioStack = () => {
+    // 1. Cancel SpeechSynthesis
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
+
+    // 2. Abort SpeechRecognition & remove event listeners
     if (recognitionRef.current) {
-      try { recognitionRef.current.stop(); } catch (e) {}
+      try {
+        recognitionRef.current.onresult = null;
+        recognitionRef.current.onerror = null;
+        recognitionRef.current.onend = null;
+        recognitionRef.current.abort();
+      } catch (e) {}
       recognitionRef.current = null;
     }
+
+    // 3. Stop active media stream tracks
     if (micStream) {
       micStream.getTracks().forEach(t => t.stop());
       setMicStream(null);
     }
+
+    // 4. Reset audio state flags
+    isAISpeakingRef.current = false;
+    isMicEnabledRef.current = false;
+    isRecordingRef.current = false;
+    setIsAISpeaking(false);
+    setIsRecording(false);
+  };
+
+  // Component unmount cleanup
+  useEffect(() => {
+    return () => {
+      purgeAudioStack();
+    };
+  }, []);
+
+  const stopAudioCapture = () => {
+    purgeAudioStack();
   };
 
   const toggleRecording = () => {
@@ -267,6 +368,37 @@ export const LiveInterviewRoom: React.FC<LiveInterviewRoomProps> = ({
       stopAudioCapture();
     } else {
       startAudioCapture();
+    }
+  };
+
+  // Explicit End Interview Handler with Confirmation
+  const handleEndInterview = async () => {
+    if (typeof window !== 'undefined' && !window.confirm("Are you sure you want to end this technical evaluation session?")) {
+      return;
+    }
+
+    purgeAudioStack();
+    setLoading(true);
+    try {
+      const res = await fetch('/api/interview', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          candidate_id: candidateId,
+          session_id: sessionId,
+          message: 'Candidate requested to conclude evaluation early.',
+          done: true,
+          persona
+        })
+      });
+      const data = await res.json();
+      setIsCompleted(true);
+      if (data.feedback) setFeedback(data.feedback);
+    } catch (err) {
+      console.error('Failed to conclude interview early:', err);
+      setIsCompleted(true);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -461,7 +593,7 @@ export const LiveInterviewRoom: React.FC<LiveInterviewRoomProps> = ({
         <div className="flex items-center gap-3 w-full md:w-auto">
           <button
             onClick={() => {
-              stopAudioCapture();
+              purgeAudioStack();
               onBackToDashboard();
             }}
             className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors cursor-pointer"
@@ -557,6 +689,16 @@ export const LiveInterviewRoom: React.FC<LiveInterviewRoomProps> = ({
                 {recalledMemories.length}
               </span>
             )}
+          </button>
+
+          {/* Prominent End Interview Button */}
+          <button
+            onClick={handleEndInterview}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-950/80 hover:bg-rose-900 border border-rose-800 text-rose-300 font-bold shadow-lg transition-all cursor-pointer text-xs"
+            title="Conclude Interview & View Final Evaluation Report"
+          >
+            <Power className="w-3.5 h-3.5 text-rose-400" />
+            <span>End Interview</span>
           </button>
         </div>
       </div>

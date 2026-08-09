@@ -26,6 +26,24 @@ export class InterviewAgentEngine {
       const bio = c.bio || `${name} is a ${target_role} with ${c.member?.yearsExperience || 5} years experience (${c.member?.education || 'CS Degree'}).`;
       const avatar = c.avatar || `https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80`;
 
+      const passedMissions = c.missions ? c.missions.filter((m: any) => m.passed) : [];
+      const skippedMissions = c.missions ? c.missions.filter((m: any) => m.skipped || m.passed === false) : [];
+
+      const completed_missions = c.completed_missions || [
+        `${passedMissions.length > 0 ? passedMissions.length : 5} / 7 (${passedMissions.slice(0, 3).map((m: any) => m.title).join(', ') || 'RAG, Vector Indexing, MCP'})`
+      ];
+
+      // Calculate dynamic attempt count dynamically
+      const activeCount = Array.from(activeSessions.values()).filter(s => s.candidateId === id).length;
+      const attempts = (c.attempts_count || 0) + activeCount + 1;
+
+      const skipped_topics = c.skipped_topics || (skippedMissions.length > 0 ? skippedMissions.map((m: any) => m.title) : ['Low-Level HNSW Quantization']);
+      const learning_signals = c.learning_signals || (
+        c.signals?.missionsFirstTry > 20
+          ? ['Strong Prompt Security', 'Rapid Agentic Architecture Mastery']
+          : ['Needs HNSW Tuning', 'Continuous Memory Management']
+      );
+
       return {
         ...c,
         id,
@@ -34,6 +52,10 @@ export class InterviewAgentEngine {
         target_role,
         completed_days,
         skipped_days,
+        completed_missions,
+        attempts,
+        skipped_topics,
+        learning_signals,
         known_strengths: known_strengths.length > 0 ? known_strengths : ['Agentic AI', 'RAG'],
         focus_areas: focus_areas.length > 0 ? focus_areas : ['MCP', 'Vector Indexing'],
         cohort_grade,

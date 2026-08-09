@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { Candidate, InterviewFeedback } from '@/lib/types';
-import { Award, CheckCircle2, AlertTriangle, FileText, RefreshCw, Download, Copy, Check, BarChart2 } from 'lucide-react';
+import { Award, CheckCircle2, AlertTriangle, FileText, RefreshCw, Download, Copy, Check, BarChart2, X } from 'lucide-react';
 
 interface FeedbackModalProps {
   isOpen: boolean;
@@ -116,11 +116,20 @@ ${summaryText}`;
             </div>
           </div>
 
-          <div className="flex flex-col items-start md:items-end gap-1">
-            <span className="text-[10px] text-slate-400 uppercase font-semibold">Hiring Recommendation</span>
-            <div className={`px-4 py-1.5 rounded-xl border text-sm font-bold tracking-wide shadow-md ${getRecommendationBadge(feedback?.hiring_recommendation)}`}>
-              {feedback?.hiring_recommendation || 'Hire'}
+          <div className="flex items-center gap-3">
+            <div className="flex flex-col items-start md:items-end gap-1">
+              <span className="text-[10px] text-slate-400 uppercase font-semibold">Hiring Recommendation</span>
+              <div className={`px-4 py-1.5 rounded-xl border text-sm font-bold tracking-wide shadow-md ${getRecommendationBadge(feedback?.hiring_recommendation)}`}>
+                {feedback?.hiring_recommendation || 'Hire'}
+              </div>
             </div>
+            <button
+              onClick={onRestart}
+              className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 transition-colors cursor-pointer ml-2"
+              title="Close Report & Return to Candidate Setup"
+            >
+              <X className="w-5 h-5" />
+            </button>
           </div>
         </div>
 

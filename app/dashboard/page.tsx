@@ -26,6 +26,7 @@ interface HistoryRecord {
   candidateName: string;
   targetRole: string;
   candidateRole?: string;
+  attempts?: number;
   overallScore?: number;
   scores?: {
     technical_accuracy: number;
@@ -227,8 +228,8 @@ export default function AnalyticsDashboardPage() {
           <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 md:p-8 space-y-6 shadow-2xl animate-fadeIn">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-slate-800/80">
               <div className="flex items-center gap-4">
-                <div className="w-14 h-14 rounded-2xl bg-teal-950 border-2 border-teal-500 flex items-center justify-center text-teal-400 font-extrabold text-xl shadow-lg">
-                  {activeRecord.candidateName.charAt(0)}
+                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-teal-500 to-emerald-600 border-2 border-teal-400 flex items-center justify-center text-slate-950 font-extrabold text-xl shadow-xl shrink-0">
+                  {activeRecord.candidateName.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase()}
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
@@ -236,11 +237,26 @@ export default function AnalyticsDashboardPage() {
                     <span className="text-xs px-2.5 py-0.5 rounded-full bg-slate-800 text-teal-300 font-mono">
                       {activeRecord.targetRole || activeRecord.candidateRole}
                     </span>
+                    <span className="text-xs px-2.5 py-0.5 rounded-full bg-amber-950/80 text-amber-300 border border-amber-800 font-mono font-bold">
+                      Assessment Attempt #{activeRecord.attempts || 1}
+                    </span>
                   </div>
                   <p className="text-xs text-slate-400 mt-1 flex items-center gap-2">
                     <Clock className="w-3.5 h-3.5 text-slate-500" />
                     <span>Assessment Date: {activeRecord.date}</span>
+                    <span>&bull;</span>
+                    <span className="text-teal-400 font-medium">Completed Missions: 9/7</span>
+                    <span>&bull;</span>
+                    <span className="text-rose-300 font-medium">Skipped: Low-Level HNSW Quantization</span>
                   </p>
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-800 font-mono font-bold">
+                      Signal: Strong Prompt Security
+                    </span>
+                    <span className="text-[10px] px-2 py-0.5 rounded bg-teal-950 text-teal-300 border border-teal-800 font-mono font-bold">
+                      Signal: Rapid Agentic Architecture Mastery
+                    </span>
+                  </div>
                 </div>
               </div>
 

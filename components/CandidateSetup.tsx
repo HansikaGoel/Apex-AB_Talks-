@@ -111,6 +111,8 @@ export const CandidateSetup: React.FC<CandidateSetupProps> = ({
             const isSelected = cid === selectedCandidateId;
             const cName = cand.name || cand.member?.name || 'Candidate';
             const cRole = cand.target_role || cand.member?.jobRole || 'AI Engineer';
+            const initials = cName.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase();
+            const cBio = cand.bio || `Specializes in large-scale data pipelines, vector search indexing, and real-time streaming architectures.`;
 
             return (
               <div
@@ -119,19 +121,26 @@ export const CandidateSetup: React.FC<CandidateSetupProps> = ({
                   onSelectCandidate(cand);
                   setTargetRole(cRole);
                 }}
-                className={`p-4 rounded-2xl border transition-all cursor-pointer space-y-2 ${
+                className={`p-4 rounded-2xl border transition-all cursor-pointer space-y-2.5 ${
                   isSelected
-                    ? 'bg-teal-950/60 border-teal-500 text-slate-100 shadow-lg'
+                    ? 'bg-teal-950/60 border-teal-500 text-slate-100 shadow-xl ring-1 ring-teal-500/50'
                     : 'bg-slate-950/60 border-slate-800/80 text-slate-400 hover:border-slate-700 hover:text-slate-200'
                 }`}
               >
-                <div className="flex items-center justify-between">
-                  <h4 className="font-bold text-sm text-slate-100">{cName}</h4>
-                  {isSelected && <CheckCircle2 className="w-4 h-4 text-teal-400" />}
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-teal-500 to-emerald-600 flex items-center justify-center text-slate-950 font-extrabold text-sm shadow-md ring-2 ring-slate-800 shrink-0">
+                    {initials}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <h3 className="text-sm font-bold text-slate-100 leading-tight truncate">{cName}</h3>
+                    <span className="text-xs text-teal-400 font-medium block truncate">{cRole}</span>
+                  </div>
+                  {isSelected && <CheckCircle2 className="w-4 h-4 text-teal-400 shrink-0" />}
                 </div>
-                <span className="inline-block px-2 py-0.5 rounded bg-slate-900 text-[10px] font-mono text-teal-300 border border-slate-800">
-                  {cRole}
-                </span>
+
+                <p className="text-[11px] text-slate-400 leading-snug line-clamp-2 pt-1 border-t border-slate-800/60">
+                  {cBio}
+                </p>
               </div>
             );
           })}
